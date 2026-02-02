@@ -112,13 +112,6 @@ rm -f "$CERTS_DIR/server.csr"
 # Fix ownership
 sudo chown -R smartallotment:docker mqtt/certs mqtt_listener/certs
 
-# Expose MQTT port if missing
-echo -e "${YELLOW}📡 Ensuring MQTT port 1883 exposed...${NC}"
-if ! grep -q "1883:1883" docker-compose.yml; then
-  sed -i '/ports:/a \      - "1883:1883"           # MQTT plain' docker-compose.yml
-  echo -e "${GREEN}✅ Added port 1883 mapping${NC}"
-fi
-
 # Optional: clear DB for fresh start
 echo -e "${YELLOW}📊 Resetting database (optional)...${NC}"
 # rm -rf database/data/*
