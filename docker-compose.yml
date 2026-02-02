@@ -1,0 +1,106 @@
+services:
+  # -------------------------------
+  # MOSQUITTO MQTT BROKER (TLS)
+  # -------------------------------
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"           # Plain MQTT
+      - "8883:8883"           # MQTT over TLS
+    volumes:
+      - ./mqtt/config:/mosquitto/config
+      - ./mqtt/data:/mosquitto/data
+      - ./mqtt/log:/mosquitto/log
+      - ./mqtt/certs:/mosquitto/certs
+    networks:
+      - backend
+
+  # -------------------------------
+  # POSTGRESQL DATABASE
+  # -------------------------------
+  database:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mqtt
+      POSTGRES_PASSWORD: smartallotment2026
+      POSTGRES_DB: sensors
+    volumes:
+      - ./database/data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    #ports:
+    #  - "5432:5432"
+    networks:
+      - backend
+    #healthcheck:
+    #  test: ["CMD", "mosquitto_sub", "-h", "localhost", "-p", "1883", "-t", "test", "-C", "1", "-W", "3"]
+    #  interval: 30s
+    #  timeout: 10s
+    #  retries: 3
+
+  # -------------------------------
+  # MQTT LISTENER INGEST WORKER
+  # -------------------------------
+  mqtt_listener:
+    build: ./mqtt_listener
+    container_name: mqtt_listener
+    restart: unless-stopped
+    depends_on:
+      - mqtt
+      - database
+    environment:
+      # MQTT
+      MQTT_HOST: mqtt
+      MQTT_PORT: 1883
+      #MQTT_PORT: 8883
+      MQTT_USERNAME: ""
+      MQTT_PASSWORD: ""
+      #MQTT_CA_CERT: /listener/certs/ca.crt
+
+      # POSTGRES
+      PSQL_HOST: database
+      PSQL_PORT: 5432
+      PSQL_USER: mqtt
+      PSQL_PASS: smartallotment2026
+      PSQL_DB: sensors
+    volumes:
+      - ./mqtt_listener:/listener
+      #- ./mqtt/certs/ca.crt:/listener/certs/ca.crt:ro
+    networks:
+      - backend
+
+  # -------------------------------
+  # FASTAPI BACKEND API
+  # -------------------------------
+  api:
+    build: ./api
+    container_name: api
+    restart: unless-stopped
+    depends_on:
+      - database
+    ports:
+      - "8000:8000"
+    environment:
+      PSQL_HOST: database
+      PSQL_PORT: 5432
+      PSQL_USER: mqtt
+      PSQL_PASS: smartallotment2026
+      PSQL_DB: sensors
+    volumes:
+      - ./api:/api
+      - ./static:/api/static
+      - ./templates:/api/templates
+    networks:
+      - backend
+
+
+# -------------------------------
+# NETWORK TO CONNECT ALL SERVICES
+# -------------------------------
+networks:
+  backend:
+    driver: bridge
+

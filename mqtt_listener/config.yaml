@@ -1,0 +1,15 @@
+mqtt:
+  host: mqtt
+  port: 8883
+  username: matt
+  password: <your-pass>
+  ca_cert: /listener/certs/ca.crt
+  topics:
+    - "sensors/#"
+
+postgres:
+  host: database
+  port: 5432
+  user: mqtt
+  password: smartallotment2026
+  db: sensors
