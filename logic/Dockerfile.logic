@@ -4,8 +4,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Copy logic folder and requirements
-COPY logic/ logic/
-COPY requirements.txt requirements.txt
+COPY logic/ ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
