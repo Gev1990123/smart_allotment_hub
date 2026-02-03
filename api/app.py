@@ -60,7 +60,7 @@ def get_latest(device_id: str):
         for row in rows:
             sensors.append({
                 "sensor_name": row[2],
-                "sensor_value": float(row[4]),
+                "sensor_value": float(row[4]) if row[4] is not None else 0.0,
                 "unit": row[5],
                 "sensor_type": row[3],
                 "timestamp": row[0]
