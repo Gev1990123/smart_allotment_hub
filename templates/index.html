@@ -50,170 +50,164 @@
 </main>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     // Fetch list of devices
     // -----------------------------
     async function loadDevices() {
-        const res = await fetch("/devices");
-        const data = await res.json();
+        try {
+            const res = await fetch("/devices");
+            const data = await res.json();
 
-        const select = document.getElementById("deviceSelect");
-        select.innerHTML = "";
+            const select = document.getElementById("deviceSelect");
+            select.innerHTML = "";
 
-        data.devices.forEach(device => {
-            const opt = document.createElement("option");
-            opt.value = device;
-            opt.textContent = device;
-            select.appendChild(opt);
-        });
+            data.devices.forEach(device => {
+                const opt = document.createElement("option");
+                opt.value = device;
+                opt.textContent = device;
+                select.appendChild(opt);
+            });
 
-        // Load data for first device
-        if (data.devices.length > 0) {
-            loadLatest(data.devices[0]);
-            loadHistory(data.devices[0]);
+            if (data.devices.length > 0) {
+                loadLatest(data.devices[0]);
+                loadHistory(data.devices[0]);
+            }
+        } catch (e) {
+            console.error("Failed to load devices:", e);
+            // Fallback
+            document.getElementById("deviceSelect").innerHTML = '<option value="SA-NODE1">SA-NODE1</option>';
+            loadLatest("SA-NODE1");
+            loadHistory("SA-NODE1");
         }
     }
 
     document.getElementById("deviceSelect").addEventListener("change", e => {
-        loadLatest(e.target.value);
-        loadHistory(e.target.value);
+        const device_id = e.target.value;
+        if (device_id) {
+            loadLatest(device_id);
+            loadHistory(device_id);
+        }
     });
-
 
     // -----------------------------
     // Fetch latest reading
     // -----------------------------
     async function loadLatest(device_id) {
-        const res = await fetch(`/latest/${device_id}`);
-        const readings = await res.json();  // Expect array of {sensor_name, sensor_value, sensor_unit, sensor_type, timestamp}
+        try {
+            const res = await fetch(`/latest/${device_id}`);
+            const readings = await res.json();
+            const out = document.getElementById("latestOutput");
+            
+            if (!Array.isArray(readings) || readings.length === 0) {
+                out.textContent = "No data available.";
+                return;
+            }
 
-        const out = document.getElementById("latestOutput");
-        if (!Array.isArray(readings) || readings.length === 0) {
-        out.textContent = "No data available.";
-        return;
+            out.innerHTML = `
+                <strong>Device:</strong> ${device_id}<br>
+                ${readings.map(r => `
+                    <strong>${r.sensor_name}:</strong> ${r.sensor_value} ${r.unit || ''}<br>
+                `).join('')}
+                <small>${new Date(readings[0].timestamp).toLocaleString()}</small>
+            `;
+        } catch (e) {
+            console.error("Failed to load latest:", e);
         }
-
-        out.innerHTML = `
-            <strong>Device:</strong> ${device_id}<br>
-            ${readings.map(r => `
-                <strong>${r.sensor_name}:</strong> ${r.sensor_value} ${r.unit || ''}<br>
-            `).join('')}
-            <small>${new Date(readings[0].timestamp).toLocaleString()}</small>
-        `;
     }
 
     // -----------------------------
-    // Chart.js Setup (empty chart)
+    // Create 3 separate charts (NOW SAFE - DOM is loaded)
     // -----------------------------
-    const ctx = document.getElementById("historyChart").getContext("2d");
-    const chart = new Chart(ctx, {
+    const tempCtx = document.getElementById("tempChart").getContext("2d");
+    const moistureCtx = document.getElementById("moistureChart").getContext("2d"); 
+    const lightCtx = document.getElementById("lightChart").getContext("2d");
+
+    const tempChart = new Chart(tempCtx, {
         type: "line",
-        data: {
-            labels: [],
-            datasets: []
-        },
+        data: { labels: [], datasets: [] },
         options: {
             responsive: true,
-            scales: {
+            scales: { 
                 x: { title: { display: true, text: "Time" } },
-                y: { 
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: { display: true, text: "Moisture (%) / Temp (°C)" }
-                }, 
-                y1: {  // Secondary axis for light
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    title: { display: true, text: "Light (lux)" },
-                    grid: { drawOnChartArea: false }
-                }
-            
+                y: { min: 10, max: 30, title: { display: true, text: "°C" } }
             }
         }
     });
 
-// -----------------------------
-// Create 3 separate charts FIRST (add this BEFORE loadHistory)
-// -----------------------------
-const tempCtx = document.getElementById("tempChart").getContext("2d");
-const moistureCtx = document.getElementById("moistureChart").getContext("2d"); 
-const lightCtx = document.getElementById("lightChart").getContext("2d");
+    const moistureChart = new Chart(moistureCtx, {
+        type: "line",
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            scales: { 
+                x: { title: { display: true, text: "Time" } },
+                y: { min: 0, max: 110, title: { display: true, text: "%" } }
+            }
+        }
+    });
 
-const tempChart = new Chart(tempCtx, {
-    type: "line",
-    options: {
-        responsive: true,
-        scales: { y: { min: 10, max: 30, title: { display: true, text: "°C" } } }
+    const lightChart = new Chart(lightCtx, {
+        type: "line",
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            scales: { 
+                x: { title: { display: true, text: "Time" } },
+                y: { min: 0, max: 1000, title: { display: true, text: "lux" } }
+            }
+        }
+    });
+
+    // Helper function
+    function updateSingleChart(chart, times, timestamps, readings, type) {
+        const values = timestamps.map(ts => {
+            const reading = readings.find(r => r.timestamp === ts);
+            return reading ? reading.sensor_value : null;
+        });
+        
+        chart.data.labels = times;
+        chart.data.datasets = [{
+            label: type.charAt(0).toUpperCase() + type.slice(1),
+            data: values,
+            borderColor: type === 'light' ? '#ff9800' : type === 'temperature' ? '#2196f3' : '#4caf50',
+            backgroundColor: type === 'light' ? '#ff980033' : type === 'temperature' ? '#2196f333' : '#4caf5033',
+            fill: false,
+            tension: 0.3,
+            pointRadius: 3
+        }];
+        chart.update('none');
     }
-});
 
-const moistureChart = new Chart(moistureCtx, {
-    type: "line", 
-    options: {
-        responsive: true,
-        scales: { y: { min: 0, max: 110, title: { display: true, text: "%" } } }
-    }
-});
+    // -----------------------------
+    // Fetch history + update charts
+    // -----------------------------
+    async function loadHistory(device_id) {
+        try {
+            const res = await fetch(`/history/${device_id}?hours=2`);
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length === 0) return;
 
-const lightChart = new Chart(lightCtx, {
-    type: "line",
-    options: {
-        responsive: true,
-        scales: { 
-            y: { min: 0, max: 1000, title: { display: true, text: "lux" } }
+            const timestamps = [...new Set(data.map(r => r.timestamp))].slice(-30).sort();
+            const times = timestamps.map(t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+
+            const tempReadings = data.filter(r => r.sensor_type === 'temperature');
+            const moistureReadings = data.filter(r => r.sensor_type === 'moisture');
+            const lightReadings = data.filter(r => r.sensor_type === 'light');
+
+            updateSingleChart(tempChart, times, timestamps, tempReadings, 'temperature');
+            updateSingleChart(moistureChart, times, timestamps, moistureReadings, 'moisture');
+            updateSingleChart(lightChart, times, timestamps, lightReadings, 'light');
+        } catch (e) {
+            console.error("Failed to load history:", e);
         }
     }
-});
 
-// -----------------------------
-// Updated loadHistory - 3 clean charts
-// -----------------------------
-async function loadHistory(device_id) {
-    const res = await fetch(`/history/${device_id}?hours=2`);
-    const data = await res.json();
-    if (!Array.isArray(data) || data.length === 0) return;
-
-    // Last 30 readings only (cleaner chart)
-    const timestamps = [...new Set(data.map(r => r.timestamp))].slice(-30).sort();
-    const times = timestamps.map(t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
-
-    // Filter by sensor type
-    const tempReadings = data.filter(r => r.sensor_type === 'temperature');
-    const moistureReadings = data.filter(r => r.sensor_type === 'moisture');
-    const lightReadings = data.filter(r => r.sensor_type === 'light');
-
-    // Update each chart
-    updateSingleChart(tempChart, times, timestamps, tempReadings, 'temperature');
-    updateSingleChart(moistureChart, times, timestamps, moistureReadings, 'moisture');
-    updateSingleChart(lightChart, times, timestamps, lightReadings, 'light');
-}
-
-// Helper function
-function updateSingleChart(chart, times, timestamps, readings, type) {
-    const values = timestamps.map(ts => {
-        const reading = readings.find(r => r.timestamp === ts);
-        return reading ? reading.sensor_value : null;
-    });
-    
-    chart.data.labels = times;
-    chart.data.datasets = [{
-        label: type.charAt(0).toUpperCase() + type.slice(1),
-        data: values,
-        borderColor: type === 'light' ? '#ff9800' : type === 'temperature' ? '#2196f3' : '#4caf50',
-        backgroundColor: type === 'light' ? '#ff9800' : type === 'temperature' ? '#2196f3' : '#4caf50',
-        fill: false,
-        tension: 0.3,
-        pointRadius: 2
-    }];
-    chart.update('none');
-}
-
- 
     // Initial load
     loadDevices();
+});
+</script>
 
-    </script>
+
    </body>
 </html>
