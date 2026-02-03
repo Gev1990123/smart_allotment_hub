@@ -99,6 +99,27 @@ services:
     networks:
       - backend
 
+  # -------------------------------
+  # LOGIC / AUTOMATION SERVICE
+  # -------------------------------
+  logic:
+    build:
+      context: ./logic        # the folder containing logic Dockerfile
+      dockerfile: Dockerfile.logic
+    container_name: logic
+    restart: unless-stopped
+    depends_on:
+      - api
+      - mqtt
+    environment:
+      API_URL: "http://api:8000"           # FastAPI container
+      MQTT_HOST: "mqtt"
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MOISTURE_THRESHOLD: 40               # % moisture to trigger pump
+      PUMP_RUN_SECONDS: 5                   # pump runtime in seconds
+      RUN_INTERVAL: 60                      
+    networks:
+      - backend
 
 # -------------------------------
 # NETWORK TO CONNECT ALL SERVICES

@@ -1,0 +1,14 @@
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy logic folder and requirements
+COPY logic/ logic/
+COPY requirements.txt requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Run logic.py on container start
+CMD ["python", "-u", "logic/logic.py"]
