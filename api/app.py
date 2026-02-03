@@ -42,56 +42,31 @@ def get_latest(device_id: str):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT time, device_id, sensor_id, sensor_type, value, unit
+            SELECT DISTINCT ON (sensor_type) 
+                   time, device_id, sensor_id, sensor_type, value, unit
             FROM sensor_data
             WHERE device_id = %s
-            ORDER BY time DESC
-            LIMIT 1;
+            ORDER BY sensor_type, time DESC;
         """, (device_id,))
 
-        row = cur.fetchone()
+        rows = cur.fetchall()
         conn.close()
 
-        if not row:
+        if not rows:
             return JSONResponse(status_code=404, content={"error": "No data found"})
 
         # Return ALL sensors from latest reading as array
         sensors = []
-
-        # Moisture
-        if row[3] == "moisture":
+        for row in rows:
             sensors.append({
                 "sensor_name": row[2],
-                "sensor_value": row[4],
+                "sensor_value": float(row[4]),
                 "unit": row[5],
                 "sensor_type": row[3],
-                "timestamp": row[0],                
+                "timestamp": row[0]
             })
-        
-        # Temperature  
-        if row[3] == "temperature":
-            sensors.append({
-                "sensor_name": row[2],
-                "sensor_value": row[4],
-                "unit": row[5],
-                "sensor_type": row[3],
-                "timestamp": row[0],                
-            })
-        
-        
-        # Light
-        if row[3] == "light":
-            sensors.append({
-                "sensor_name": row[2],
-                "sensor_value": row[4],
-                "unit": row[5],
-                "sensor_type": row[3],
-                "timestamp": row[0],                
-            })
-        
 
-        return sensors
-
+        return sensors        
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
