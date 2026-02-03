@@ -1,8 +1,6 @@
-
 /* ---------------------------------------------------------
    GLOBAL STYLES
 --------------------------------------------------------- */
-
 body {
     margin: 0;
     padding: 0;
@@ -27,7 +25,6 @@ header h1 {
 /* ---------------------------------------------------------
    LAYOUT
 --------------------------------------------------------- */
-
 main {
     padding: 25px;
     max-width: 1100px;
@@ -35,11 +32,19 @@ main {
 }
 
 .device-selector {
-    margin-bottom: 20px;
+    background: #fff;
+    padding: 20px 22px;
+    border-radius: 10px;
+    margin-bottom: 25px;
+    box-shadow: 0px 2px 4px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 label {
     font-weight: bold;
+    white-space: nowrap;
 }
 
 select {
@@ -47,13 +52,13 @@ select {
     border-radius: 5px;
     border: 1px solid #aaa;
     font-size: 14px;
-    margin-left: 10px;
+    flex: 1;
+    min-width: 200px;
 }
 
 /* ---------------------------------------------------------
    PANELS / CARDS
 --------------------------------------------------------- */
-
 .latest-box,
 .chart-container {
     background: #fff;
@@ -64,7 +69,7 @@ select {
 }
 
 .latest-box h2,
-.chart-container h2 {
+.chart-container h3 {
     margin-top: 0;
 }
 
@@ -74,11 +79,26 @@ select {
 }
 
 /* ---------------------------------------------------------
-   CHARTS
+   CHARTS GRID
 --------------------------------------------------------- */
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 25px;
+    margin-bottom: 25px;
+}
 
 .chart-container {
     padding: 25px;
+}
+
+.chart-container h3 {
+    font-size: 18px;
+    color: #2e7d32;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
 }
 
 canvas {
@@ -89,7 +109,6 @@ canvas {
 /* ---------------------------------------------------------
    BUTTONS (future use)
 --------------------------------------------------------- */
-
 button {
     background: #2e7d32;
     color: white;
@@ -107,11 +126,20 @@ button:hover {
 /* ---------------------------------------------------------
    RESPONSIVE DESIGN
 --------------------------------------------------------- */
-
 @media (max-width: 768px) {
-
     main {
         padding: 15px;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .device-selector {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
     }
 
     .latest-box,
