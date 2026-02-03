@@ -79,6 +79,62 @@ select {
 }
 
 /* ---------------------------------------------------------
+   SENSOR DASHBOARD GRID
+--------------------------------------------------------- */
+.sensor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.sensor-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px 20px;
+    border-radius: 15px;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.sensor-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+
+.sensor-card.status {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.sensor-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+}
+
+.sensor-value {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.sensor-label {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.sensor-unit {
+    font-size: 12px;
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+
+/* ---------------------------------------------------------
    CHARTS GRID
 --------------------------------------------------------- */
 .charts-grid {

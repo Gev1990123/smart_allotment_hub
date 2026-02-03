@@ -26,9 +26,31 @@
     </div>
 
     <!-- Latest Reading Summary -->
-    <div class="latest-box">
-        <h2>Latest Reading</h2>
-        <p id="latestOutput">Select a device...</p>
+    <div class="sensor-grid">
+        <div class="sensor-card" data-type="temperature">
+            <div class="sensor-icon">🌡️</div>
+            <div class="sensor-value" id="tempValue">--</div>
+            <div class="sensor-label">Temperature</div>
+            <div class="sensor-unit">°C</div>
+        </div>
+        <div class="sensor-card" data-type="moisture">
+            <div class="sensor-icon">💧</div>
+            <div class="sensor-value" id="moistureValue">--</div>
+            <div class="sensor-label">Soil Moisture</div>
+            <div class="sensor-unit">%</div>
+        </div>
+        <div class="sensor-card" data-type="light">
+            <div class="sensor-icon">☀️</div>
+            <div class="sensor-value" id="lightValue">--</div>
+            <div class="sensor-label">Light</div>
+            <div class="sensor-unit">lux</div>
+        </div>
+        <div class="sensor-card status">
+            <div class="sensor-icon">📡</div>
+            <div class="sensor-value" id="statusValue">Offline</div>
+            <div class="sensor-label">Status</div>
+            <div class="sensor-unit"></div>
+        </div>
     </div>
 
     <!-- Chart Area -->
@@ -97,27 +119,33 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const res = await fetch(`/latest/${device_id}`);
             const readings = await res.json();
-            const out = document.getElementById("latestOutput");
             
             if (!Array.isArray(readings) || readings.length === 0) {
-                out.textContent = "No data available.";
+                document.getElementById("statusValue").textContent = "No Data";
                 return;
             }
 
-            out.innerHTML = `
-                <strong>Device:</strong> ${device_id}<br>
-                ${readings.map(r => `
-                    <strong>${r.sensor_name}:</strong> ${r.sensor_value} ${r.unit || ''}<br>
-                `).join('')}
-                <small>${new Date(readings[0].timestamp).toLocaleString()}</small>
-            `;
+            // Update individual sensor cards
+            readings.forEach(reading => {
+                const valueEl = document.getElementById(reading.sensor_type + 'Value');
+                if (valueEl) {
+                    valueEl.textContent = reading.sensor_value.toFixed(1);
+                }
+            });
+
+            // Update status
+            document.getElementById("statusValue").textContent = `Live - ${new Date().toLocaleTimeString()}`;
+            document.getElementById("statusValue").parentElement.classList.remove("status-offline");
+            
         } catch (e) {
             console.error("Failed to load latest:", e);
+            document.getElementById("statusValue").textContent = "Error";
         }
     }
 
+
     // -----------------------------
-    // Create 3 separate charts (NOW SAFE - DOM is loaded)
+    // Create 3 separate charts
     // -----------------------------
     const tempCtx = document.getElementById("tempChart").getContext("2d");
     const moistureCtx = document.getElementById("moistureChart").getContext("2d"); 
