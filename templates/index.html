@@ -119,29 +119,35 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const res = await fetch(`/latest/${device_id}`);
             const readings = await res.json();
+            console.log("Latest readings:", readings); // DEBUG
             
             if (!Array.isArray(readings) || readings.length === 0) {
                 document.getElementById("statusValue").textContent = "No Data";
                 return;
             }
 
-            // Update individual sensor cards
-            readings.forEach(reading => {
-                const valueEl = document.getElementById(reading.sensor_type + 'Value');
-                if (valueEl) {
-                    valueEl.textContent = reading.sensor_value.toFixed(1);
-                }
-            });
+            // Direct mapping - find each sensor by type
+            const tempReading = readings.find(r => r.sensor_type === 'temperature');
+            const moistureReading = readings.find(r => r.sensor_type === 'moisture');
+            const lightReading = readings.find(r => r.sensor_type === 'light');
 
-            // Update status
-            document.getElementById("statusValue").textContent = `Live - ${new Date().toLocaleTimeString()}`;
-            document.getElementById("statusValue").parentElement.classList.remove("status-offline");
-            
+            // Update each card directly
+            document.getElementById("tempValue").textContent = 
+                tempReading ? tempReading.sensor_value.toFixed(1) : "--";
+            document.getElementById("moistureValue").textContent = 
+                moistureReading ? moistureReading.sensor_value.toFixed(1) : "--";
+            document.getElementById("lightValue").textContent = 
+                lightReading ? lightReading.sensor_value.toFixed(1) : "--";
+                
+            document.getElementById("statusValue").textContent = 
+                `Live - ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
+
         } catch (e) {
-            console.error("Failed to load latest:", e);
+            console.error("Latest failed:", e);
             document.getElementById("statusValue").textContent = "Error";
         }
     }
+
 
 
     // -----------------------------
