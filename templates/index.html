@@ -127,14 +127,14 @@
     // Fetch history + update chart
     // -----------------------------
     async function loadHistory(device_id) {
-        const res = await fetch(`/history/${device_id}?hours=24`);
+        const res = await fetch(`/history/${device_id}?hours=1`); // Use 1hr for faster plotting
         const data = await res.json();
 
         if (!Array.isArray(data)) return;
 
         // Get unique timestamps (sorted)
         const timestamps = [...new Set(data.map(r => r.timestamp))].sort();
-        const times = timestamps.map(t => new Date(t).toLocaleTimeString());
+        const times = timestamps.map(t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'}));
 
         // Group readings by sensor_name
         const sensors = [...new Set(data.map(r => r.sensor_name))];
@@ -161,10 +161,11 @@
                     label: `${sensor} (${data.find(r => r.sensor_name === sensor)?.unit || ''})`,
                     data: values,
                     borderColor: colors[i % colors.length],
-                    backgroundColor: colors[i % colors.length] + '20',
+                    backgroundColor: colors[i % colors.length] + '33',
                     yAxisId: yAxes[i % yAxes.length],
                     fill: false,
-                    tension: 0.1
+                    tension: 0.1,
+                    pointRadius: 3
                 });
             });
 
