@@ -83,13 +83,15 @@ select {
 --------------------------------------------------------- */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     gap: 25px;
     margin-bottom: 25px;
 }
 
 .chart-container {
     padding: 25px;
+    position: relative;
+    height: 500px;
 }
 
 .chart-container h3 {
@@ -102,8 +104,8 @@ select {
 }
 
 canvas {
-    width: 100% !important;
-    height: 400px !important;
+    width: 100%;
+    height:100% ;
 }
 
 /* ---------------------------------------------------------
@@ -145,6 +147,7 @@ button:hover {
     .latest-box,
     .chart-container {
         padding: 15px;
+        height: 400px;
     }
 
     header h1 {
@@ -152,6 +155,6 @@ button:hover {
     }
 
     canvas {
-        height: 300px !important;
+        height: 100%;
     }
 }
