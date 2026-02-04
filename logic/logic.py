@@ -17,7 +17,7 @@ API_URL = os.getenv("API_URL", "http://api:8000")
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
-DEVICE_ID = os.getenv("DEVICE_ID", "SA-NODE1")
+#DEVICE_ID = os.getenv("DEVICE_ID", "SA-NODE1")
 
 # -------------------------
 # Logging setup
@@ -63,6 +63,16 @@ def trigger_pump(node_id: str, seconds: float):
     mqtt_client.publish(topic, json.dumps(payload), qos=1)
     logger.info(f"Published pump command to {topic}: {payload}")
 
+
+def devices():
+    try:
+        resp = requests.get(f"{API_URL}/devices", timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch devices: {e}")
+        return []
+
 # -------------------------
 # Main logic loop
 # -------------------------
@@ -70,33 +80,37 @@ last_triggered = False  # skip repeated triggers if moisture is still low
 
 while True:
     try:
-        # Get latest readings from API
-        resp = requests.get(f"{API_URL}/latest/{DEVICE_ID}", timeout=10)
-        resp.raise_for_status()
-        sensors = resp.json()
+        for device in devices():
+            logger.info(f"Device: {device['device_id']} - {device['device_name']}")
+            DEVICE_ID = device['device_id']
 
-        # Filter moisture sensors
-        moisture_values = [s['sensor_value'] for s in sensors if s['sensor_type'] == 'moisture']
+            # Get latest readings from API
+            resp = requests.get(f"{API_URL}/latest/{DEVICE_ID}", timeout=10)
+            resp.raise_for_status()
+            sensors = resp.json()
 
-        if moisture_values:
-            avg_moisture = sum(moisture_values) / len(moisture_values)
-            logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
+            # Filter moisture sensors
+            moisture_values = [s['sensor_value'] for s in sensors if s['sensor_type'] == 'moisture']
 
-            if avg_moisture < MOISTURE_THRESHOLD:
-                if not last_triggered:
-                    logger.info(
-                        f"Moisture below threshold ({MOISTURE_THRESHOLD}%), "
-                        f"triggering pump for {PUMP_RUN_SECONDS}s"
-                    )
-                    trigger_pump(DEVICE_ID, PUMP_RUN_SECONDS)
-                    last_triggered = True
+            if moisture_values:
+                avg_moisture = sum(moisture_values) / len(moisture_values)
+                logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
+
+                if avg_moisture < MOISTURE_THRESHOLD:
+                    if not last_triggered:
+                        logger.info(
+                            f"Moisture below threshold ({MOISTURE_THRESHOLD}%), "
+                            f"triggering pump for {PUMP_RUN_SECONDS}s"
+                        )
+                        trigger_pump(DEVICE_ID, PUMP_RUN_SECONDS)
+                        last_triggered = True
+                    else:
+                        logger.info("Moisture still below threshold, pump already triggered, skipping")
                 else:
-                    logger.info("Moisture still below threshold, pump already triggered, skipping")
+                    logger.info(f"Moisture above threshold {MOISTURE_THRESHOLD}%, no action required")
+                    last_triggered = False
             else:
-                logger.info("Moisture above threshold, no action required")
-                last_triggered = False
-        else:
-            logger.warning("No moisture sensors found in latest readings")
+                logger.warning("No moisture sensors found in latest readings")
 
     except requests.RequestException as e:
         logger.error(f"HTTP/API error: {e}")
