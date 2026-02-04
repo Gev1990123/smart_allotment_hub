@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS devices (
     name VARCHAR(255),
     active BOOLEAN DEFAULT FALSE,
     last_seen TIMESTAMPTZ,
-    site_id INT REFERENCES sites(id) ON DELETE SET NULL
+    site_id INT REFERENCES sites(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
