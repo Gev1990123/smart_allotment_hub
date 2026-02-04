@@ -61,15 +61,11 @@ def get_latest(device_uid: str):
         cur.execute("""
                     SELECT DISTINCT ON (sd.sensor_type) 
                         d.uid as device_uid,
-                        d.name as device_name,
-                        d.active,
-                        d.last_seen,
-                        sd.time, 
-                        sd.device_id, 
-                        sd.sensor_id, 
+                        sd.sensor_name,
+                        sd.value,
+                        sd.unit,
                         sd.sensor_type, 
-                        sd.value, 
-                        sd.unit
+                        sd.time 
                     FROM devices d
                     INNER JOIN sensor_data sd ON d.id = sd.device_id
                     WHERE d.uid = %s
@@ -86,11 +82,11 @@ def get_latest(device_uid: str):
         sensors = []
         for row in rows:
             sensors.append({
-                "sensor_name": row[2],
-                "sensor_value": float(row[4]) if row[4] is not None else 0.0,
-                "unit": row[5],
-                "sensor_type": row[3],
-                "timestamp": row[0]
+                "sensor_name": row[1],
+                "sensor_value": float(row[2]) if row[2] is not None else 0.0,
+                "unit": row[3],
+                "sensor_type": row[4],
+                "timestamp": row[5]
             })
 
         return sensors        
