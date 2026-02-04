@@ -63,12 +63,16 @@ def trigger_pump(node_id: str, seconds: float):
     mqtt_client.publish(topic, json.dumps(payload), qos=1)
     logger.info(f"Published pump command to {topic}: {payload}")
 
+# -------------------------
+# Dynamic device fetcher
+# -------------------------
 
 def devices():
     try:
         resp = requests.get(f"{API_URL}/devices", timeout=10)
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        return data.get("devices", [])
     except requests.RequestException as e:
         logger.error(f"Failed to fetch devices: {e}")
         return []
@@ -76,13 +80,13 @@ def devices():
 # -------------------------
 # Main logic loop
 # -------------------------
-last_triggered = False  # skip repeated triggers if moisture is still low
+last_triggered = {}  # skip repeated triggers if moisture is still low
 
 while True:
     try:
-        for device in devices():
-            logger.info(f"Device: {device['device_id']} - {device['device_name']}")
-            DEVICE_ID = device['device_id']
+        for DEVICE_ID in devices():
+            logger.info(f"Processing device {DEVICE_ID}")
+
 
             # Get latest readings from API
             resp = requests.get(f"{API_URL}/latest/{DEVICE_ID}", timeout=10)
@@ -97,13 +101,13 @@ while True:
                 logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
 
                 if avg_moisture < MOISTURE_THRESHOLD:
-                    if not last_triggered:
+                    if not last_triggered.get(DEVICE_ID, False):
                         logger.info(
                             f"Moisture below threshold ({MOISTURE_THRESHOLD}%), "
                             f"triggering pump for {PUMP_RUN_SECONDS}s"
                         )
                         trigger_pump(DEVICE_ID, PUMP_RUN_SECONDS)
-                        last_triggered = True
+                        last_triggered[DEVICE_ID] = True
                     else:
                         logger.info("Moisture still below threshold, pump already triggered, skipping")
                 else:
