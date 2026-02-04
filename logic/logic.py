@@ -73,7 +73,11 @@ def devices():
         resp = requests.get(f"{API_URL}/devices", timeout=10)
         resp.raise_for_status()
         data = resp.json()
-        return data.get("devices", [])
+
+        # Extract device UIDs
+        devices_uids = [device["uid"] for device in data.get("devices", [])]
+
+        return devices_uids
     except requests.RequestException as e:
         logger.error(f"Failed to fetch devices: {e}")
         return []
