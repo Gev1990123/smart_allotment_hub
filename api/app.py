@@ -134,7 +134,7 @@ def list_devices():
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT DISTINCT device_uid FROM sensor_data WHERE device_uid IS NOT NULL ORDER BY device_uid;")
+        cur.execute("SELECT DISTINCT uid FROM devices WHERE uid IS NOT NULL ORDER BY uid;")
         rows = cur.fetchall()
         devices = [row[0] for row in rows]
 
