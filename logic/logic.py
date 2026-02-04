@@ -12,9 +12,12 @@ import paho.mqtt.client as mqtt
 MOISTURE_THRESHOLD = float(os.getenv("MOISTURE_THRESHOLD", 40))
 PUMP_RUN_SECONDS = float(os.getenv("PUMP_RUN_SECONDS", 5))
 RUN_INTERVAL = int(os.getenv("RUN_INTERVAL", 60))
+
 API_URL = os.getenv("API_URL", "http://api:8000")
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
+
+DEVICE_ID = "SA-NODE1"
 
 logger = logging.getLogger("logic")
 logging.basicConfig(level=logging.INFO)
@@ -22,41 +25,56 @@ logging.basicConfig(level=logging.INFO)
 # -------------------------
 # MQTT publish helper
 # -------------------------
-def trigger_pump(node_id: str, seconds: float):
-    topic = f"pump/{node_id}"
-    payload = {"action": "run", "seconds": seconds}
 
-    client = mqtt.Client()
-    client.connect(MQTT_HOST, MQTT_PORT, 60)
-    client.loop_start()
-    client.publish(topic, json.dumps(payload), qos=1)
-    time.sleep(1)  # allow MQTT to send
-    client.loop_stop()
-    client.disconnect()
-    logger.info(f"Sent pump command to {node_id} for {seconds}s")
+mqtt_client = mqtt.Client(client_id="logic-service")
+
+def on_connect(client, userdata, flags, rc):
+    logger.info(f"Logic MQTT connected with rc={rc}")
+
+def on_publish(client, userdata, mid):
+    logger.info(f"Logic MQTT publish confirmed mid={mid}")
+
+mqtt_client.on_connect = on_connect
+mqtt_client.on_publish = on_publish
+
+logger.info(f"Connecting to MQTT at {MQTT_HOST}:{MQTT_PORT}")
+mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
+mqtt_client.loop_start()
 
 # -------------------------
 # Logic loop
 # -------------------------
 while True:
     try:
-        # get latest readings from API
-        resp = requests.get(f"{API_URL}/latest/SA-NODE1")
+        resp = requests.get(f"{API_URL}/latest/{DEVICE_ID}")
         resp.raise_for_status()
         sensors = resp.json()
 
-        # filter moisture sensors
-        moisture_values = [s['sensor_value'] for s in sensors if s['sensor_type'] == 'moisture']
+        moisture_values = [
+            s['sensor_value']
+            for s in sensors
+            if s['sensor_type'] == 'moisture'
+        ]
 
         if moisture_values:
             avg_moisture = sum(moisture_values) / len(moisture_values)
             logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
 
             if avg_moisture < MOISTURE_THRESHOLD:
-                logger.info(f"Moisture below threshold ({MOISTURE_THRESHOLD}%), triggering pump for {PUMP_RUN_SECONDS}s")
-                trigger_pump("SA-NODE1", PUMP_RUN_SECONDS)
+                logger.info(
+                    f"Moisture below threshold ({MOISTURE_THRESHOLD}%), "
+                    f"triggering pump for {PUMP_RUN_SECONDS}s"
+                )
+
+                topic = f"pump/{DEVICE_ID}"
+                payload = {"action": "run", "seconds": PUMP_RUN_SECONDS}
+
+                mqtt_client.publish(topic, json.dumps(payload), qos=1)
+                logger.info(f"Published pump command to {topic}: {payload}")
+
             else:
                 logger.info("Moisture above threshold, no action required")
+
         else:
             logger.warning("No moisture sensors found in latest readings")
 
