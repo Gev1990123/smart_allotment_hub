@@ -85,12 +85,12 @@ last_triggered = {}  # skip repeated triggers if moisture is still low
 
 while True:
     try:
-        for DEVICE_ID in devices():
-            logger.info(f"Processing device {DEVICE_ID}")
+        for DEVICE_UID in devices():
+            logger.info(f"Processing device {DEVICE_UID}")
 
 
             # Get latest readings from API
-            resp = requests.get(f"{API_URL}/latest/{DEVICE_ID}", timeout=10)
+            resp = requests.get(f"{API_URL}/latest/{DEVICE_UID}", timeout=10)
             resp.raise_for_status()
             sensors = resp.json()
 
@@ -102,19 +102,19 @@ while True:
                 logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
 
                 current_time = time.time()
-                last_time = last_triggered.get(DEVICE_ID, 0)
+                last_time = last_triggered.get(DEVICE_UID, 0)
 
                 if avg_moisture < MOISTURE_THRESHOLD:
                     if current_time - last_time >= SKIP_INTERVAL:
                         logger.info(f"Moisture below threshold ({MOISTURE_THRESHOLD}%), triggering pump")
-                        trigger_pump(DEVICE_ID, PUMP_RUN_SECONDS)
-                        last_triggered[DEVICE_ID] = current_time
+                        trigger_pump(DEVICE_UID, PUMP_RUN_SECONDS)
+                        last_triggered[DEVICE_UID] = current_time
                     else:
                         remaining = SKIP_INTERVAL - (current_time - last_time)
                         logger.info(f"Moisture low but skipping pump for {remaining:.0f}s more")
                 else:
                     logger.info(f"Moisture above threshold {MOISTURE_THRESHOLD}%, no action required")
-                    last_triggered[DEVICE_ID] = 0
+                    last_triggered[DEVICE_UID] = 0
             else:
                 logger.warning("No moisture sensors found in latest readings")
 

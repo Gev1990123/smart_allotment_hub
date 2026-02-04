@@ -68,6 +68,38 @@ def on_connect(client, userdata, flags, rc):
     else:
         logger.error(f"Connection failed with code {rc}")
 
+def activate_device_if_needed(conn, uid: str) -> int | None:
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, active FROM devices WHERE uid = %s;", (uid,))
+    row = cur.fetchone()
+
+    if not row:
+        logger.warning(f"Rejected unknown device UID={uid}")
+        cur.close()
+        return None
+
+    device_db_id, active = row
+
+    if not active:
+        logger.info(f"First check-in for device {uid}, activating")
+        cur.execute("""
+            UPDATE devices
+            SET active = TRUE,
+                last_seen = NOW()
+            WHERE id = %s;
+        """, (device_db_id,))
+    else:
+        cur.execute("""
+            UPDATE devices
+            SET last_seen = NOW()
+            WHERE id = %s;
+        """, (device_db_id,))
+
+    conn.commit()
+    cur.close()
+    return device_db_id
+
 def on_message(client, userdata, msg):
 
     """
@@ -87,50 +119,65 @@ def on_message(client, userdata, msg):
         logger.info(f"Received: {data} from {msg.topic}")
         
         conn = connect_db()
+
+        # Extract UID
+        # device_uid = data.get('device_id', msg.topic.split('/')[1])
+        device_uid = data['device_uid']
+
+
+        if device_uid.endswith("UNKNOWN"):
+            logger.error("Device has UNKNOWN serial, rejecting")
+            return # ❌ Stop processing unknown devices
+
+        # Validate + activate device
+        device_db_id = activate_device_if_needed(conn, device_uid)
+        if not device_db_id:
+            conn.close()
+            return  # ❌ Stop processing unknown devices
+
         cur = conn.cursor()
         
-        device_id = data.get('device_id', msg.topic.split('/')[1])
         # Loop through all sensors in the payload
         for sensor in data.get('sensors', []):
-            sensor_id = f"{sensor['id']}" 
+            sensor_id = sensor['id']
             current_time = datetime.now(timezone.utc)
 
-            # Dynamic INSERT based on sensor type
-            if sensor['type'] == 'temperature':
-                cur.execute("""INSERT INTO sensor_data (time, device_id, sensor_id, sensor_type, value, unit) 
-                            VALUES (%s, %s, %s, %s, %s, %s)""",
-                            (
-                            current_time, 
-                            device_id, 
-                            sensor_id, 
-                            sensor['type'], 
-                            sensor['value'], 
-                            sensor.get('unit', 'C')))
-            elif sensor['type'] == 'moisture':
-                cur.execute("""INSERT INTO sensor_data (time, device_id, sensor_id, sensor_type, value, unit) 
-                            VALUES (%s, %s, %s, %s, %s, %s)""",
-                            (
-                            current_time, 
-                            device_id, 
-                            sensor_id, 
-                            sensor['type'], 
-                            sensor['value'], 
-                            sensor.get('unit', '%')))
-            elif sensor['type'] == 'light':
-                cur.execute("""INSERT INTO sensor_data (time, device_id, sensor_id, sensor_type, value, unit) 
-                            VALUES (%s, %s, %s, %s, %s, %s)""",
-                            (
-                            current_time, 
-                            device_id, 
-                            sensor_id, 
-                            sensor['type'], 
-                            sensor['value'], 
-                            sensor.get('unit', 'lux')))
-                    
+            cur.execute("""
+                INSERT INTO sensor_data (
+                    site_id,
+                    device_id,
+                    time,
+                    sensor_id,
+                    sensor_name,
+                    sensor_type,
+                    value,
+                    unit
+                )
+                VALUES (
+                    (SELECT site_id FROM devices WHERE id = %s),
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    %s
+                )
+            """, (
+                device_db_id,
+                device_db_id,
+                current_time,
+                sensor_id,
+                sensor_id,              # or a nicer name later
+                sensor['type'],
+                sensor['value'],
+                sensor.get('unit')
+            ))                    
+        
         conn.commit()
         cur.close()
         conn.close()
-        logger.info(f"Saved {len(data.get('sensors', []))} sensors from {device_id}")
+        logger.info(f"Saved {len(data.get('sensors', []))} sensors from {device_uid}")
         
     except Exception as e:
         logger.error(f"Error processing message: {e}")

@@ -3,6 +3,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import HTTPException
+from pydantic import BaseModel
 from db import get_connection
 
 app = FastAPI(title="Smart Allotment API")
@@ -18,6 +20,21 @@ app.add_middleware(
 # Static + templates (absolute paths inside the container)
 app.mount("/static", StaticFiles(directory="/api/static"), name="static")
 templates = Jinja2Templates(directory="/api/templates")
+
+# -------------------------
+# Pydantic models
+# -------------------------
+class DeviceCreate(BaseModel):
+    uid: str
+    name: str | None = None
+    site_id: int | None = None
+
+class DeviceInfo(BaseModel):
+    uid: str
+    name: str | None
+    active: bool
+    last_seen: str | None
+    site_id: int | None
 
 # ---------------------------------------------------------
 # HEALTH CHECK
@@ -117,7 +134,7 @@ def list_devices():
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT DISTINCT device_id FROM sensor_data WHERE device_id IS NOT NULL ORDER BY device_id;")
+        cur.execute("SELECT DISTINCT device_uid FROM sensor_data WHERE device_uid IS NOT NULL ORDER BY device_uid;")
         rows = cur.fetchall()
         devices = [row[0] for row in rows]
 
@@ -160,6 +177,39 @@ def list_sensors():
     finally:
         if conn:
             conn.close
+
+# -------------------------
+# Register a new device
+# -------------------------
+@app.post("/device/register", response_model=DeviceInfo)
+def register_device(device: DeviceCreate):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Check if device already exists
+    cur.execute("SELECT uid, name, active, last_seen, site_id FROM devices WHERE uid = %s;", (device.uid,))
+    row = cur.fetchone()
+    if row:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Device already registered")
+
+    cur.execute("""
+        INSERT INTO devices (uid, name, site_id, active)
+        VALUES (%s, %s, %s, FALSE)
+        RETURNING uid, name, active, last_seen, site_id;
+    """, (device.uid, device.name, device.site_id))
+
+    new_device = cur.fetchone()
+    conn.commit()
+    conn.close()
+
+    return {
+        "uid": new_device[0],
+        "name": new_device[1],
+        "active": new_device[2],
+        "last_seen": new_device[3],
+        "site_id": new_device[4],
+    }
 
 
 # ---------------------------------------------------------
