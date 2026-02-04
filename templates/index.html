@@ -86,14 +86,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
             data.devices.forEach(device => {
                 const opt = document.createElement("option");
-                opt.value = device;
-                opt.textContent = device;
+                opt.value = device.uid;
+                opt.textContent = device.name;
                 select.appendChild(opt);
             });
 
             if (data.devices.length > 0) {
-                loadLatest(data.devices[0]);
-                loadHistory(data.devices[0]);
+                loadLatest(data.devices[0].uid);  
+                loadHistory(data.devices[0].uid);
             }
         } catch (e) {
             console.error("Failed to load devices:", e);
