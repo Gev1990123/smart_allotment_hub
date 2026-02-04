@@ -9,9 +9,10 @@ import paho.mqtt.client as mqtt
 # -------------------------
 # Config from environment
 # -------------------------
-MOISTURE_THRESHOLD = float(os.getenv("MOISTURE_THRESHOLD", 40))
-PUMP_RUN_SECONDS = float(os.getenv("PUMP_RUN_SECONDS", 5))
-RUN_INTERVAL = int(os.getenv("RUN_INTERVAL", 60))
+MOISTURE_THRESHOLD = float(40)
+PUMP_RUN_SECONDS = float(5)
+RUN_INTERVAL = int(60)
+SKIP_INTERVAL = int(120)
 
 API_URL = os.getenv("API_URL", "http://api:8000")
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
@@ -100,19 +101,20 @@ while True:
                 avg_moisture = sum(moisture_values) / len(moisture_values)
                 logger.info(f"Average soil moisture: {avg_moisture:.1f}%")
 
+                current_time = time.time()
+                last_time = last_triggered.get(DEVICE_ID, 0)
+
                 if avg_moisture < MOISTURE_THRESHOLD:
-                    if not last_triggered.get(DEVICE_ID, False):
-                        logger.info(
-                            f"Moisture below threshold ({MOISTURE_THRESHOLD}%), "
-                            f"triggering pump for {PUMP_RUN_SECONDS}s"
-                        )
+                    if current_time - last_time >= SKIP_INTERVAL:
+                        logger.info(f"Moisture below threshold ({MOISTURE_THRESHOLD}%), triggering pump")
                         trigger_pump(DEVICE_ID, PUMP_RUN_SECONDS)
-                        last_triggered[DEVICE_ID] = True
+                        last_triggered[DEVICE_ID] = current_time
                     else:
-                        logger.info("Moisture still below threshold, pump already triggered, skipping")
+                        remaining = SKIP_INTERVAL - (current_time - last_time)
+                        logger.info(f"Moisture low but skipping pump for {remaining:.0f}s more")
                 else:
                     logger.info(f"Moisture above threshold {MOISTURE_THRESHOLD}%, no action required")
-                    last_triggered[DEVICE_ID] = False
+                    last_triggered[DEVICE_ID] = 0
             else:
                 logger.warning("No moisture sensors found in latest readings")
 
