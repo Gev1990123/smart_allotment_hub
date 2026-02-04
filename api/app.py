@@ -109,7 +109,7 @@ def get_history(device_uid: str, hours: int = 24):
                 sd.sensor_name,
                 sd.time,
                 sd.value,
-                sd.type,
+                sd.sensor_type,
                 sd.unit
             FROM devices d
             INNER JOIN sensor_data sd ON d.id = sd.device_id
