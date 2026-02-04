@@ -20,7 +20,11 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 DEVICE_ID = "SA-NODE1"
 
 logger = logging.getLogger("logic")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 # -------------------------
 # MQTT publish helper
