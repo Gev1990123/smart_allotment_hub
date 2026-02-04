@@ -112,7 +112,7 @@ while True:
                         logger.info("Moisture still below threshold, pump already triggered, skipping")
                 else:
                     logger.info(f"Moisture above threshold {MOISTURE_THRESHOLD}%, no action required")
-                    last_triggered = False
+                    last_triggered[DEVICE_ID] = False
             else:
                 logger.warning("No moisture sensors found in latest readings")
 
