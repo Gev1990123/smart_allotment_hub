@@ -140,6 +140,14 @@ def on_message(client, userdata, msg):
         # Loop through all sensors in the payload
         for sensor in data.get('sensors', []):
             sensor_id = sensor['id']
+            
+            if sensor['type'] == 'moisture':
+                sensor_unit = '%'
+            elif sensor['type'] == 'temperature':
+                sensor_unit = '°C'
+            elif sensor['type'] == 'light':
+                sensor_unit = 'lx'
+
             current_time = datetime.now(timezone.utc)
 
             cur.execute("""
@@ -171,7 +179,7 @@ def on_message(client, userdata, msg):
                 sensor_id,              # or a nicer name later
                 sensor['type'],
                 sensor['value'],
-                sensor.get('unit')
+                sensor_unit
             ))                    
         
         conn.commit()
