@@ -52,19 +52,29 @@ def health():
 # ---------------------------------------------------------
 # GET LATEST READINGS FOR DEVICE
 # ---------------------------------------------------------
-@app.get("/latest/{device_id}")
-def get_latest(device_id: str):
+@app.get("/latest/{device_uid}")
+def get_latest(device_uid: str):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT DISTINCT ON (sensor_type) 
-                   time, device_id, sensor_id, sensor_type, value, unit
-            FROM sensor_data
-            WHERE device_id = %s
-            ORDER BY sensor_type, time DESC;
-        """, (device_id,))
+                    SELECT DISTINCT ON (sd.sensor_type) 
+                        d.uid as device_uid,
+                        d.name as device_name,
+                        d.active,
+                        d.last_seen,
+                        sd.time, 
+                        sd.device_id, 
+                        sd.sensor_id, 
+                        sd.sensor_type, 
+                        sd.value, 
+                        sd.unit
+                    FROM devices d
+                    INNER JOIN sensor_data sd ON d.id = sd.device_id
+                    WHERE d.uid = %s
+                    ORDER BY sd.sensor_type, sd.time DESC;
+                """, (device_uid,))
 
         rows = cur.fetchall()
         conn.close()
