@@ -97,19 +97,26 @@ def get_latest(device_uid: str):
 # ---------------------------------------------------------
 # GET HISTORY FOR A DEVICE (using your new schema)
 # ---------------------------------------------------------
-@app.get("/history/{device_id}")
-def get_history(device_id: str, hours: int = 24):
+@app.get("/history/{device_uid}")
+def get_history(device_uid: str, hours: int = 24):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT time, device_id, sensor_id, sensor_type, value, unit
-            FROM sensor_data
-            WHERE device_id = %s
-              AND time > NOW() - INTERVAL '%s hours'
-            ORDER BY time ASC;
-        """, (device_id, hours))
+            SELECT 
+                d.uid as device_uid,
+                sd.sensor_name,
+                sd.time,
+                sd.value,
+                sd.type,
+                sd.unit
+            FROM devices d
+            INNER JOIN sensor_data sd ON d.id = sd.device_id
+            WHERE d.uid = %s
+            AND sd.time > NOW() - INTERVAL '%s hours'
+            ORDER BY sd.time ASC;""", 
+            (device_uid, hours))
 
         raw_rows = cur.fetchall()
         conn.close()
@@ -118,10 +125,10 @@ def get_history(device_id: str, hours: int = 24):
         rows = []
         for row in raw_rows:
             rows.append({
-                "sensor_name": row[2],
-                "timestamp": row[0],
-                "sensor_value": row[4],
-                "sensor_type": row[3],
+                "sensor_name": row[1],
+                "timestamp": row[2],
+                "sensor_value": row[3],
+                "sensor_type": row[4],
                 "unit": row[5]
             })
         

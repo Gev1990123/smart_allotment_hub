@@ -115,9 +115,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     // Fetch latest reading
     // -----------------------------
-    async function loadLatest(device_id) {
+    async function loadLatest(device_uid) {
         try {
-            const res = await fetch(`/latest/${device_id}`);
+            const res = await fetch(`/latest/${device_uid}`);
             const readings = await res.json();
             console.log("Latest readings:", readings); // DEBUG
             
@@ -219,9 +219,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     // Fetch history + update charts
     // -----------------------------
-    async function loadHistory(device_id) {
+    async function loadHistory(device_uid) {
         try {
-            const res = await fetch(`/history/${device_id}?hours=2`);
+            const res = await fetch(`/history/${device_uid}?hours=2`);
             const data = await res.json();
             if (!Array.isArray(data) || data.length === 0) return;
 
