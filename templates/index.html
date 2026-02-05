@@ -17,6 +17,12 @@
     <h1>🌱 Smart Allotment Dashboard</h1>
 </header>
 
+<!-- NAVIGATION -->
+<nav>
+    <a href="/">📊 Dashboard</a>
+    <a href="/devices">📡 Devices</a>
+</nav>
+
 <main>
 
     <!-- Device Picker -->
@@ -73,6 +79,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+        // Mark current page as active
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('nav a').forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+
     // -----------------------------
     // Fetch list of devices
     // -----------------------------
