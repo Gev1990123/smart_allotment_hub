@@ -8,18 +8,17 @@
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 
-<!-- NAVIGATION SNIPPET -->
-
-<nav>
-    <a href="/">📊 Dashboard</a>
-    <a href="/devices">📡 Devices</a>
-</nav>
-
 <body>
 
 <header>
     <h1>🌱 Smart Allotment - Devices</h1>
 </header>
+
+<!-- NAVIGATION SNIPPET -->
+<nav>
+    <a href="/">📊 Dashboard</a>
+    <a href="/devices">📡 Devices</a>
+</nav>
 
 <main>
 
@@ -51,17 +50,16 @@
 </main>
 
 <script>
-// Mark current page as active
 document.addEventListener('DOMContentLoaded', function() {
+    // Mark current page as active
     const currentPath = window.location.pathname;
     document.querySelectorAll('nav a').forEach(link => {
         if (link.getAttribute('href') === currentPath) {
             link.classList.add('active');
         }
     });
-});
-
-document.addEventListener('DOMContentLoaded', function() {
+    
+    // Load devices
     loadDevices();
     
     // Auto-refresh every 30 seconds
