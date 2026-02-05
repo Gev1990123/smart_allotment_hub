@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Devices - Smart Allotment</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<!-- NAVIGATION SNIPPET -->
+
+<nav>
+    <a href="/">📊 Dashboard</a>
+    <a href="/devices">📡 Devices</a>
+</nav>
+
+<body>
+
+<header>
+    <h1>🌱 Smart Allotment - Devices</h1>
+</header>
+
+<main>
+
+    <!-- Page Header -->
+    <div class="device-selector">
+        <div style="flex: 1;">
+            <h2 style="margin: 0; font-size: 20px;">📡 Device Management</h2>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your allotment sensors</p>
+        </div>
+        <button onclick="window.location.href='/'">← Back to Dashboard</button>
+    </div>
+
+    <!-- Devices Grid -->
+    <div id="devicesContainer" class="devices-grid">
+        <!-- Devices will be loaded here -->
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="latest-box" style="text-align: center;">
+        <p>Loading devices...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="latest-box" style="text-align: center; display: none;">
+        <h3>No Devices Found</h3>
+        <p>No devices have been registered yet.</p>
+    </div>
+
+</main>
+
+<script>
+// Mark current page as active
+document.addEventListener('DOMContentLoaded', function() {
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('nav a').forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadDevices();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadDevices, 30000);
+});
+
+async function loadDevices() {
+    const container = document.getElementById('devicesContainer');
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+    
+    try {
+        const res = await fetch('/api/devices');
+        const data = await res.json();
+        
+        if (!data.devices || data.devices.length === 0) {
+            container.style.display = 'none';
+            loadingState.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        loadingState.style.display = 'none';
+        emptyState.style.display = 'none';
+        container.style.display = 'grid';
+        
+        // Fetch latest data for each device to determine status
+        const devicesWithStatus = await Promise.all(
+            data.devices.map(async (device) => {
+                try {
+                    const latestRes = await fetch(`/api/latest/${device.uid}`);
+                    const latestData = await latestRes.json();
+                    
+                    // Determine if device is online based on latest data
+                    const isOnline = Array.isArray(latestData) && latestData.length > 0;
+                    const lastSeen = isOnline ? latestData[0].timestamp : null;
+                    
+                    return {
+                        ...device,
+                        isOnline,
+                        lastSeen,
+                        sensorCount: isOnline ? latestData.length : 0,
+                        latestData: latestData
+                    };
+                } catch (e) {
+                    return {
+                        ...device,
+                        isOnline: false,
+                        lastSeen: null,
+                        sensorCount: 0,
+                        latestData: []
+                    };
+                }
+            })
+        );
+        
+        renderDevices(devicesWithStatus);
+        
+    } catch (e) {
+        console.error('Failed to load devices:', e);
+        loadingState.innerHTML = '<p style="color: #e53935;">Error loading devices. Please try again.</p>';
+    }
+}
+
+function renderDevices(devices) {
+    const container = document.getElementById('devicesContainer');
+    
+    container.innerHTML = devices.map(device => {
+        const statusClass = device.isOnline ? 'online' : 'offline';
+        const statusText = device.isOnline ? 'Online' : 'Offline';
+        
+        let lastSeenText = 'Never';
+        if (device.lastSeen) {
+            const lastSeenDate = new Date(device.lastSeen);
+            const now = new Date();
+            const diffMinutes = Math.floor((now - lastSeenDate) / 60000);
+            
+            if (diffMinutes < 1) {
+                lastSeenText = 'Just now';
+            } else if (diffMinutes < 60) {
+                lastSeenText = `${diffMinutes}m ago`;
+            } else if (diffMinutes < 1440) {
+                const hours = Math.floor(diffMinutes / 60);
+                lastSeenText = `${hours}h ago`;
+            } else {
+                lastSeenText = lastSeenDate.toLocaleDateString();
+            }
+        }
+        
+        // Get sensor readings
+        let tempValue = '--';
+        let moistureValue = '--';
+        let lightValue = '--';
+        
+        if (device.latestData && Array.isArray(device.latestData)) {
+            const temp = device.latestData.find(s => s.sensor_type === 'temperature');
+            const moisture = device.latestData.find(s => s.sensor_type === 'moisture');
+            const light = device.latestData.find(s => s.sensor_type === 'light');
+            
+            if (temp) tempValue = temp.sensor_value.toFixed(1);
+            if (moisture) moistureValue = moisture.sensor_value.toFixed(1);
+            if (light) lightValue = Math.round(light.sensor_value);
+        }
+        
+        return `
+            <div class="device-card ${device.isOnline ? '' : 'offline'}">
+                <div class="device-header">
+                    <div>
+                        <h3 class="device-name">${device.name || device.uid}</h3>
+                        <span class="device-uid">${device.uid}</span>
+                    </div>
+                    <span class="status-badge ${statusClass}">${statusText}</span>
+                </div>
+                
+                <div class="device-stats">
+                    <div class="stat-item">
+                        <div class="stat-icon">🌡️</div>
+                        <div class="stat-value">${tempValue}</div>
+                        <div class="stat-label">Temp °C</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">💧</div>
+                        <div class="stat-value">${moistureValue}</div>
+                        <div class="stat-label">Moisture %</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">☀️</div>
+                        <div class="stat-value">${lightValue}</div>
+                        <div class="stat-label">Light lux</div>
+                    </div>
+                </div>
+                
+                <div class="device-info">
+                    <strong>Last Seen:</strong> ${lastSeenText}
+                </div>
+                <div class="device-info">
+                    <strong>Active Sensors:</strong> ${device.sensorCount}
+                </div>
+                
+                <div class="device-actions">
+                    <button onclick="viewDevice('${device.uid}')">View Dashboard</button>
+                    <button class="btn-secondary" onclick="viewHistory('${device.uid}')">History</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function viewDevice(deviceUid) {
+    window.location.href = `/device/${deviceUid}`;
+}
+
+function viewHistory(deviceUid) {
+    // Navigate to main dashboard with this device selected
+    window.location.href = `/?device=${deviceUid}`;
+}
+</script>
+
+</body>
+</html>

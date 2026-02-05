@@ -95,7 +95,7 @@ def get_latest(device_uid: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ---------------------------------------------------------
-# GET HISTORY FOR A DEVICE (using your new schema)
+# GET HISTORY FOR A DEVICE
 # ---------------------------------------------------------
 @app.get("/api/history/{device_uid}")
 def get_history(device_uid: str, hours: int = 24):
@@ -192,7 +192,7 @@ def list_sensors():
             conn.close
 
 # -------------------------
-# Register a new device
+# REGISTER A NEW DEVICE
 # -------------------------
 @app.post("/api/device/register", response_model=DeviceInfo)
 def register_device(device: DeviceCreate):
@@ -232,6 +232,10 @@ def register_device(device: DeviceCreate):
 @app.get("/")
 def dashboard(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/devices")
+def devices_page(request: Request):
+    return templates.TemplateResponse("devices.html", {"request": request})
 
 
 @app.get("/device/{device_id}")
