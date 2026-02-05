@@ -67,22 +67,22 @@
                                placeholder="e.g., SA-NODE2" 
                                pattern="[A-Za-z0-9\-_]+"
                                title="Only letters, numbers, hyphens, and underscores allowed">
-                        <small>Unique identifier for the device</small>
+                        <small>Unique identifier for the device (required)</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="deviceName">Device Name</label>
+                        <label for="deviceName">Device Name<span style="color: #e53935;">*</span></label>
                         <input type="text" id="deviceName" name="name" 
                                placeholder="e.g., Garden Bed 1">
-                        <small>Friendly name for the device (optional)</small>
+                        <small>Friendly name for the device (required)</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="siteId">Site ID</label>
+                        <label for="siteId">Site ID<span style="color: #e53935;">*</span></label>
                         <select id="siteId" name="site_id">
                             <option value="">Loading sites...</option>
                         </select>
-                        <small>Associated site/location ID (optional)</small>
+                        <small>Associated site/location ID (required)</small>
                     </div>
                     
                     <div id="formError" class="form-error" style="display: none;"></div>
