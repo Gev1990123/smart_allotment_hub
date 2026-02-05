@@ -6,6 +6,9 @@
 
     <!-- CSS -->
     <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- Shared Scripts -->
+    <script src="/static/js/scripts.js"></script>
 </head>
 
 <body>
@@ -50,14 +53,10 @@
 </main>
 
 <script>
+// ============================================
+// DEVICES PAGE SPECIFIC JAVASCRIPT
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    // Mark current page as active
-    const currentPath = window.location.pathname;
-    document.querySelectorAll('nav a').forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-            link.classList.add('active');
-        }
-    });
     
     // Load devices
     loadDevices();
@@ -208,14 +207,6 @@ function renderDevices(devices) {
     }).join('');
 }
 
-function viewDevice(deviceUid) {
-    window.location.href = `/device/${deviceUid}`;
-}
-
-function viewHistory(deviceUid) {
-    // Navigate to main dashboard with this device selected
-    window.location.href = `/?device=${deviceUid}`;
-}
 </script>
 
 </body>
