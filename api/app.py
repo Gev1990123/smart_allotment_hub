@@ -264,6 +264,9 @@ def dashboard(request: Request):
 def devices_page(request: Request):
     return templates.TemplateResponse("devices.html", {"request": request})
 
+@app.get("/sites")
+def sites_page(request: Request):
+    return templates.TemplateResponse("sites.html", {"request": request})
 
 @app.get("/device/{device_id}")
 def device_page(device_id: str, request: Request):
