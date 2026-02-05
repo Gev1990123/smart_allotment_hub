@@ -175,7 +175,7 @@ function renderDevices(devices) {
         const statusText = device.isOnline ? 'Online' : 'Offline';
         
         // Using shared utility function
-        const lastSeenText = device.lastSeen ? timeAgo(device.lastSeen) : 'Never';
+        const lastSeenText = device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never';
         
         // Get sensor readings
         let tempValue = '--';
