@@ -50,6 +50,50 @@
         <p>No devices have been registered yet.</p>
     </div>
 
+    <!-- Add Device Modal -->
+    <div id="addDeviceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Device</h3>
+                <span class="modal-close" onclick="closeAddDeviceModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addDeviceForm">
+                    <div class="form-group">
+                        <label for="deviceUid">Device UID <span style="color: #e53935;">*</span></label>
+                        <input type="text" id="deviceUid" name="uid" required 
+                               placeholder="e.g., SA-NODE2" 
+                               pattern="[A-Za-z0-9\-_]+"
+                               title="Only letters, numbers, hyphens, and underscores allowed">
+                        <small>Unique identifier for the device</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="deviceName">Device Name</label>
+                        <input type="text" id="deviceName" name="name" 
+                               placeholder="e.g., Garden Bed 1">
+                        <small>Friendly name for the device (optional)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="siteId">Site ID</label>
+                        <input type="number" id="siteId" name="site_id" 
+                               placeholder="e.g., 1" min="1">
+                        <small>Associated site/location ID (optional)</small>
+                    </div>
+                    
+                    <div id="formError" class="form-error" style="display: none;"></div>
+                    <div id="formSuccess" class="form-success" style="display: none;"></div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeAddDeviceModal()">Cancel</button>
+                        <button type="submit" id="submitBtn">Add Device</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </main>
 
 <script>
@@ -57,7 +101,6 @@
 // DEVICES PAGE SPECIFIC JAVASCRIPT
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    
     // Load devices
     loadDevices();
     
@@ -130,23 +173,8 @@ function renderDevices(devices) {
         const statusClass = device.isOnline ? 'online' : 'offline';
         const statusText = device.isOnline ? 'Online' : 'Offline';
         
-        let lastSeenText = 'Never';
-        if (device.lastSeen) {
-            const lastSeenDate = new Date(device.lastSeen);
-            const now = new Date();
-            const diffMinutes = Math.floor((now - lastSeenDate) / 60000);
-            
-            if (diffMinutes < 1) {
-                lastSeenText = 'Just now';
-            } else if (diffMinutes < 60) {
-                lastSeenText = `${diffMinutes}m ago`;
-            } else if (diffMinutes < 1440) {
-                const hours = Math.floor(diffMinutes / 60);
-                lastSeenText = `${hours}h ago`;
-            } else {
-                lastSeenText = lastSeenDate.toLocaleDateString();
-            }
-        }
+        // Using shared utility function
+        const lastSeenText = device.lastSeen ? timeAgo(device.lastSeen) : 'Never';
         
         // Get sensor readings
         let tempValue = '--';
@@ -207,6 +235,93 @@ function renderDevices(devices) {
     }).join('');
 }
 
+// Note: viewDevice() and viewHistory() functions are now in scripts.js
+
+// ============================================
+// ADD DEVICE MODAL FUNCTIONS
+// ============================================
+function openAddDeviceModal() {
+    document.getElementById('addDeviceModal').style.display = 'block';
+    document.getElementById('addDeviceForm').reset();
+    document.getElementById('formError').style.display = 'none';
+    document.getElementById('formSuccess').style.display = 'none';
+}
+
+function closeAddDeviceModal() {
+    document.getElementById('addDeviceModal').style.display = 'none';
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('addDeviceModal');
+    if (event.target === modal) {
+        closeAddDeviceModal();
+    }
+}
+
+// Handle form submission
+document.getElementById('addDeviceForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formError = document.getElementById('formError');
+    const formSuccess = document.getElementById('formSuccess');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Hide previous messages
+    formError.style.display = 'none';
+    formSuccess.style.display = 'none';
+    
+    // Get form data
+    const uid = document.getElementById('deviceUid').value.trim();
+    const name = document.getElementById('deviceName').value.trim() || null;
+    const siteId = document.getElementById('siteId').value ? parseInt(document.getElementById('siteId').value) : null;
+    
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
+    
+    try {
+        const response = await fetch('/api/device/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                uid: uid,
+                name: name,
+                site_id: siteId
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Success
+            formSuccess.textContent = `Device "${uid}" added successfully!`;
+            formSuccess.style.display = 'block';
+            
+            // Refresh devices list
+            setTimeout(() => {
+                closeAddDeviceModal();
+                loadDevices();
+            }, 1500);
+            
+        } else {
+            // Error from server
+            formError.textContent = data.detail || 'Failed to add device';
+            formError.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Device';
+        }
+        
+    } catch (error) {
+        console.error('Error adding device:', error);
+        formError.textContent = 'Network error. Please try again.';
+        formError.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Device';
+    }
+});
 </script>
 
 </body>
