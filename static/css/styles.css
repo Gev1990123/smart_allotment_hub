@@ -32,6 +32,40 @@ nav {
     display: flex;
     gap: 20px;
     align-items: center;
+    justify-content: space-between;
+}
+
+.nav-links {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.nav-user {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.user-info {
+    font-size: 14px;
+    color: #666;
+}
+
+.user-info strong {
+    color: #2e7d32;
+}
+
+.user-role-badge {
+    display: inline-block;
+    background: #2e7d32;
+    color: white;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: bold;
+    margin-left: 5px;
 }
 
 nav a {
@@ -50,6 +84,11 @@ nav a:hover {
 nav a.active {
     background: #2e7d32;
     color: white !important;
+}
+
+nav button {
+    padding: 8px 15px;
+    font-size: 14px;
 }
 
 /* ---------------------------------------------------------
@@ -336,6 +375,11 @@ button:hover {
     background: #256428;
 }
 
+button:disabled {
+    background: #9e9e9e;
+    cursor: not-allowed;
+}
+
 .btn-secondary {
     background: #666;
 }
@@ -482,6 +526,63 @@ button:hover {
 }
 
 /* ---------------------------------------------------------
+   LOGIN PAGE
+--------------------------------------------------------- */
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 200px);
+    padding: 40px 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+}
+
+.login-card h2 {
+    margin: 0 0 10px 0;
+    color: #2e7d32;
+    text-align: center;
+}
+
+.login-subtitle {
+    text-align: center;
+    color: #666;
+    margin: 0 0 30px 0;
+}
+
+.login-btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.login-footer {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+}
+
+.login-footer code {
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+/* ---------------------------------------------------------
    RESPONSIVE DESIGN
 --------------------------------------------------------- */
 @media (max-width: 768px) {
@@ -549,5 +650,9 @@ button:hover {
     
     .modal-actions button {
         width: 100%;
+    }
+
+        .login-card {
+        padding: 30px 20px;
     }
 }

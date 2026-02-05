@@ -22,9 +22,50 @@
 
 <!-- NAVIGATION -->
 <nav>
-    <a href="/">📊 Dashboard</a>
-    <a href="/devices">📡 Devices</a>
-    <a href="/sites">📍 Sites</a>
+    <div class="nav-links">
+        <a href="/">📊 Dashboard</a>
+        <a href="/devices">📡 Devices</a>
+        <a href="/sites">📍 Sites</a>
+    </div>
+Index · HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Smart Allotment Dashboard</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Shared Scripts -->
+    <script src="/static/js/scripts.js"></script>
+</head>
+
+<body>
+
+<header>
+    <h1>🌱 Smart Allotment Dashboard</h1>
+</header>
+
+<!-- NAVIGATION -->
+<nav>
+    <div class="nav-links">
+        <a href="/">📊 Dashboard</a>
+        <a href="/devices">📡 Devices</a>
+        <a href="/sites">🏡 Sites</a>
+    </div>
+    <div class="nav-user">
+        <span class="user-info">
+            <strong>{{ user.full_name or user.username }}</strong>
+            {% if user.role == 'sys_admin' %}
+            <span class="user-role-badge">Admin</span>
+            {% endif %}
+        </span>
+        <button onclick="logout()" class="btn-secondary">Logout</button>
+    </div>  
 </nav>
 
 <main>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Login - Smart Allotment</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+
+<header>
+    <h1>🌱 Smart Allotment</h1>
+</header>
+
+<main>
+    <div class="login-container">
+        <div class="login-card">
+            <h2>Sign In</h2>
+            <p class="login-subtitle">Access your allotment dashboard</p>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required autofocus placeholder="Enter your username">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required placeholder="Enter your password">
+                </div>
+                
+                <div id="loginError" class="form-error" style="display: none;"></div>
+                
+                <button type="submit" id="loginBtn" class="login-btn">Sign In</button>
+            </form>
+            
+            <div class="login-footer">
+                <p>Default credentials:</p>
+                <small>Admin: <code>admin</code> / <code>admin123</code></small><br>
+                <small>User: <code>john</code> / <code>user123</code></small><br>
+                <small style="color: #e53935; margin-top: 10px; display: block;">⚠️ Change these passwords in production!</small>
+            </div>
+        </div>
+    </div>
+</main>
+
+<style>
+
+</style>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const loginError = document.getElementById('loginError');
+    const loginBtn = document.getElementById('loginBtn');
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    // Hide error
+    loginError.style.display = 'none';
+    
+    // Disable button
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Signing in...';
+    
+    try {
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Success - redirect to dashboard
+            window.location.href = '/';
+        } else {
+            // Error
+            loginError.textContent = data.detail || 'Login failed';
+            loginError.style.display = 'block';
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Sign In';
+        }
+        
+    } catch (error) {
+        console.error('Login error:', error);
+        loginError.textContent = 'Network error. Please try again.';
+        loginError.style.display = 'block';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Sign In';
+    }
+});
+</script>
+
+</body>
+</html>

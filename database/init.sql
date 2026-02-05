@@ -55,3 +55,88 @@ CREATE TABLE IF NOT EXISTS sensor_data (
 CREATE INDEX idx_sensor_data_device_time ON sensor_data(device_id, time DESC);
 CREATE INDEX idx_sensor_data_device_type ON sensor_data(device_id, sensor_type);
 CREATE INDEX idx_sensor_data_device_type_time ON sensor_data(device_id, sensor_type, time DESC);
+
+----------------------------------------------------------------------
+-- AUTHENTICATION & AUTHORIZATION
+----------------------------------------------------------------------
+
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100),
+    role VARCHAR(20) NOT NULL DEFAULT 'user',
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    CONSTRAINT check_role CHECK (role IN ('sys_admin', 'user'))
+);
+
+-- Create user_site_assignments table (which sites a user can access)
+CREATE TABLE IF NOT EXISTS user_site_assignments (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    site_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, site_id)
+);
+
+-- Create sessions table for managing user sessions
+CREATE TABLE IF NOT EXISTS sessions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_site_assignments_user_id ON user_site_assignments(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_site_assignments_site_id ON user_site_assignments(site_id);
+
+-- Insert default sys_admin user (password: admin123 - CHANGE THIS!)
+-- Password hash is bcrypt hash of 'admin123'
+INSERT INTO users (username, email, password_hash, full_name, role)
+VALUES (
+    'admin',
+    'admin@smartallotment.local',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMeshmdCKqErG6IvzWP.9zQT5i',
+    'System Administrator',
+    'sys_admin'
+) ON CONFLICT (username) DO NOTHING;
+
+-- Example regular user (password: user123 - CHANGE THIS!)
+INSERT INTO users (username, email, password_hash, full_name, role)
+VALUES (
+    'john',
+    'john@smartallotment.local',
+    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36sA.Pz0L8xXqEPvEtjN6zu',
+    'John Gardener',
+    'user'
+) ON CONFLICT (username) DO NOTHING;
+
+-- Assign john to site_id 1 (assuming you have sites)
+INSERT INTO user_site_assignments (user_id, site_id)
+SELECT id, 1 FROM users WHERE username = 'john'
+ON CONFLICT (user_id, site_id) DO NOTHING;
+
+-- Clean up expired sessions function
+CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM sessions WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE users IS 'User accounts for dashboard access';
+COMMENT ON TABLE user_site_assignments IS 'Maps users to sites they can access';
+COMMENT ON TABLE sessions IS 'Active user sessions';
+COMMENT ON COLUMN users.role IS 'sys_admin: full access, user: site-restricted access';

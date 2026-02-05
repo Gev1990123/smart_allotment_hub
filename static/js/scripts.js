@@ -13,6 +13,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================
+// AUTHENTICATION
+// ============================================
+
+/**
+ * Logout the current user
+ */
+async function logout() {
+    try {
+        await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        window.location.href = '/login';
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Redirect anyway
+        window.location.href = '/login';
+    }
+}
+
+/**
+ * Get current user info
+ */
+async function getCurrentUser() {
+    try {
+        const response = await fetch('/api/auth/me', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            return await response.json();
+        }
+        return null;
+    } catch (error) {
+        console.error('Get user error:', error);
+        return null;
+    }
+}
+
+
+// ============================================
 // UTILITY FUNCTIONS
 // ============================================
 
