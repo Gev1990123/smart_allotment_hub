@@ -165,6 +165,33 @@ def list_devices():
             conn.close
 
 # ---------------------------------------------------------
+# LIST ALL UNIQUE SITES
+# ---------------------------------------------------------
+@app.get("/api/sites")
+def list_sites():
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT DISTINCT site_code, friendly_name  FROM sites WHERE site_code IS NOT NULL ORDER BY site_code;")
+        rows = cur.fetchall()
+        sites = [{"site_code": row[0], "friendly_name": row[1]} for row in rows]
+
+        print(f"Found sites: {sites}")
+        
+        conn.close()
+
+        return {"sites": sites}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    
+    finally:
+        if conn:
+            conn.close
+
+# ---------------------------------------------------------
 # LIST ALL UNIQUE SENSORS
 # ---------------------------------------------------------
 @app.get("/api/sensors")

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Sites - Smart Allotment</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- Shared Scripts -->
+    <script src="/static/js/scripts.js"></script>
+</head>
+
+<body>
+
+<header>
+    <h1>🌱 Smart Allotment - Sites</h1>
+</header>
+
+<!-- NAVIGATION -->
+<nav>
+    <a href="/">📊 Dashboard</a>
+    <a href="/devices">📡 Devices</a>
+    <a href="/sites">📍 Sites</a>
+</nav>
+
+<main>
+
+    <!-- Page Header -->
+    <div class="site-selector">
+        <div style="flex: 1;">
+            <h2 style="margin: 0; font-size: 20px;">� Site Management</h2>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your allotment sites</p>
+        </div>
+        <button onclick="window.location.href='/'">← Back to Dashboard</button>
+    </div>
+
+    <!-- Sites Grid -->
+    <div id="sitesContainer" class="sites-grid">
+        <!-- Sites will be loaded here -->
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="latest-box" style="text-align: center;">
+        <p>Loading sites...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div id="emptyState" class="latest-box" style="text-align: center; display: none;">
+        <h3>No Sites Found</h3>
+        <p>No sites have been registered yet.</p>
+    </div>
+
+</main>
+
+<script>
+// ============================================
+// SITES PAGE SPECIFIC JAVASCRIPT
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Load sites
+    loadSites();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(loadSites, 30000);
+});
+
+async function loadSites() {
+    const container = document.getElementById('sitesContainer');
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+    
+    try {
+        const res = await fetch('/api/sites');
+        const data = await res.json();
+        
+        if (!data.sites || data.sites.length === 0) {
+            container.style.display = 'none';
+            loadingState.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        loadingState.style.display = 'none';
+        emptyState.style.display = 'none';
+        container.style.display = 'grid';
+        
+        renderSites(data.sites);
+        
+    } catch (e) {
+        console.error('Failed to load sites:', e);
+        loadingState.innerHTML = '<p style="color: #e53935;">Error loading sites. Please try again.</p>';
+    }
+}
+
+function renderSites(sites) {
+    const container = document.getElementById('sitesContainer');
+    
+    container.innerHTML = sites.map(site => {
+        return `
+            <div class="site-card">
+                <div class="site-header">
+                    <h3 class="site-name">${site.friendly_name}</h3>
+                    <span class="site-code">${site.site_code}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+            
+        }
+
+</script>
+
+</body>
+</html>
