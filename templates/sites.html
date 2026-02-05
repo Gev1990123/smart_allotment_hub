@@ -27,7 +27,7 @@
 <main>
 
     <!-- Page Header -->
-    <div class="site-selector">
+    <div class="selector">
         <div style="flex: 1;">
             <h2 style="margin: 0; font-size: 20px;">� Site Management</h2>
             <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your allotment sites</p>
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Sites Grid -->
-    <div id="sitesContainer" class="sites-grid">
+    <div id="sitesContainer" class="page-grid">
         <!-- Sites will be loaded here -->
     </div>
 
@@ -99,9 +99,9 @@ function renderSites(sites) {
     
     container.innerHTML = sites.map(site => {
         return `
-            <div class="site-card">
-                <div class="site-header">
-                    <h3 class="site-name">${site.friendly_name}</h3>
+            <div class="page-card">
+                <div class="page-header">
+                    <h3 class="page-name">${site.friendly_name}</h3>
                     <span class="site-code">${site.site_code}</span>
                 </div>
             </div>

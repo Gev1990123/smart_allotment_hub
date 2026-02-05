@@ -195,17 +195,17 @@ canvas {
 }
 
 /* ---------------------------------------------------------
-   DEVICES PAGE STYLES
+   PAGE STYLES
 --------------------------------------------------------- */
 
-.devices-grid {
+.page-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 20px;
     margin-bottom: 25px;
 }
 
-.device-card {
+.page-card {
     background: #fff;
     border-radius: 12px;
     padding: 25px;
@@ -214,24 +214,24 @@ canvas {
     border-left: 4px solid #2e7d32;
 }
 
-.device-card:hover {
+.page-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
-.device-card.offline {
+.page-card.offline {
     border-left-color: #e53935;
     opacity: 0.85;
 }
 
-.device-header {
+.page-header {
     display: flex;
     justify-content: space-between;
     align-items: start;
     margin-bottom: 15px;
 }
 
-.device-name {
+.page-name {
     font-size: 20px;
     font-weight: bold;
     color: #333;
@@ -504,7 +504,7 @@ button:hover {
         gap: 20px;
     }
 
-    .device-selector {
+    .selector {
         flex-direction: column;
         align-items: stretch;
         gap: 15px;

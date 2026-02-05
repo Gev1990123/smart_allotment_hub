@@ -26,7 +26,7 @@
 <main>
 
     <!-- Page Header -->
-    <div class="device-selector">
+    <div class="selector">
         <div style="flex: 1;">
             <h2 style="margin: 0; font-size: 20px;">📡 Device Management</h2>
             <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your allotment sensors</p>
@@ -36,7 +36,7 @@
     </div>
 
     <!-- Devices Grid -->
-    <div id="devicesContainer" class="devices-grid">
+    <div id="devicesContainer" class="page-grid">
         <!-- Devices will be loaded here -->
     </div>
 
@@ -193,10 +193,10 @@ function renderDevices(devices) {
         }
         
         return `
-            <div class="device-card ${device.isOnline ? '' : 'offline'}">
-                <div class="device-header">
+            <div class="page-card ${device.isOnline ? '' : 'offline'}">
+                <div class="page-header">
                     <div>
-                        <h3 class="device-name">${device.name || device.uid}</h3>
+                        <h3 class="page-name">${device.name || device.uid}</h3>
                         <span class="device-uid">${device.uid}</span>
                     </div>
                     <span class="status-badge ${statusClass}">${statusText}</span>
