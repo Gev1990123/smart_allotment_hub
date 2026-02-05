@@ -252,16 +252,22 @@ async function openAddDeviceModal() {
     siteSelect.innerHTML = '<option value="">Loading sites...</option>'; // Loading state
     try {
         const response = await fetch('/api/sites');
-        if (!response.ok) throw new Error('Failed to fetch sites');
+        const apiData = await response.json();
 
-        const sites = await response.json();
+        const sites = apiData?.sites || [];
+
         siteSelect.innerHTML = '<option value="">Select a site (optional)</option>'; // Reset with placeholder
-        sites.forEach(site => {
-            const option = document.createElement('option');
-            option.value = site.id;  // Use 'id' field from your API response
-            option.textContent = site.friendly_name || site.id;  // Use 'name' or fallback to id
-            siteSelect.appendChild(option);
-        });
+        
+        if (Array.isArray(sites) && sites.length > 0) {
+            sites.forEach(site => {
+                const option = document.createElement('option');
+                option.value = site.id;  // Use 'id' field from your API response
+                option.textContent = site.friendly_name || site.id;  // Use 'name' or fallback to id
+                siteSelect.appendChild(option);
+            });
+        } else {
+            siteSelect.innerHTML = '<option value="">No sites available</option>';
+        }
     } catch (error) {
         console.error('Error fetching sites:', error);
         siteSelect.innerHTML = '<option value="">Sites unavailable</option>';
