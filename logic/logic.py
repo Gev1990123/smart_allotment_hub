@@ -70,7 +70,7 @@ def trigger_pump(node_id: str, seconds: float):
 
 def devices():
     try:
-        resp = requests.get(f"{API_URL}/devices", timeout=10)
+        resp = requests.get(f"{API_URL}/api/devices", timeout=10)
         resp.raise_for_status()
         data = resp.json()
 
@@ -94,7 +94,7 @@ while True:
 
 
             # Get latest readings from API
-            resp = requests.get(f"{API_URL}/latest/{DEVICE_UID}", timeout=10)
+            resp = requests.get(f"{API_URL}/api/latest/{DEVICE_UID}", timeout=10)
             resp.raise_for_status()
             sensors = resp.json()
 
