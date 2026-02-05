@@ -29,9 +29,10 @@
     <!-- Page Header -->
     <div class="page-selector">
         <div style="flex: 1;">
-            <h2 style="margin: 0; font-size: 20px;">� Site Management</h2>
-            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your allotment sites</p>
+            <h2 style="margin: 0; font-size: 20px;">📍 Site Management</h2>
+            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Monitor and manage all your sites</p>
         </div>
+        <button onclick="openAddSiteModal()" style="margin-right: 10px;">+ Add Site</button>
         <button onclick="window.location.href='/'">← Back to Dashboard</button>
     </div>
 
@@ -49,6 +50,39 @@
     <div id="emptyState" class="latest-box" style="text-align: center; display: none;">
         <h3>No Sites Found</h3>
         <p>No sites have been registered yet.</p>
+    </div>
+
+    <!-- Add Site Modal -->
+    <div id="addSiteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Site</h3>
+                <span class="modal-close" onclick="closeAddSiteModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addSiteForm">
+                    <div class="form-group">
+                        <label for="siteCode">Site Code <span style="color: #e53935;">*</span></label>
+                        <input type="text" id="siteCode" name="uid" required placeholder="e.g.,SITE-001">
+                        <small>Site Code is a unique identifier for the site (required)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="friendlyName">Friendly Name<span style="color: #e53935;">*</span></label>
+                        <input type="text" id="friendlyName" name="name" required placeholder="e.g., Greenhouse 1">
+                        <small>Friendly name for the site (required)</small>
+                    </div>
+                    
+                    <div id="formError" class="form-error" style="display: none;"></div>
+                    <div id="formSuccess" class="form-success" style="display: none;"></div>
+                    
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeAddSiteModal()">Cancel</button>
+                        <button type="submit" id="submitBtn">Add Site</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
 </main>
@@ -108,7 +142,90 @@ function renderSites(sites) {
         `;
     }).join('');
             
-        }   
+        }
+// ============================================
+// ADD SITE MODAL FUNCTIONS
+// ============================================
+async function openAddSiteModal() {
+    document.getElementById('addSiteModal').style.display = 'block';
+    document.getElementById('addSiteForm').reset();
+    document.getElementById('formError').style.display = 'none';
+    document.getElementById('formSuccess').style.display = 'none';
+}
+
+function closeAddSiteModal() {
+    document.getElementById('addSiteModal').style.display = 'none';
+}
+
+// Close modal when clicking outside of it
+window.onclick = function(event) {
+    const modal = document.getElementById('addSiteModal');
+    if (event.target === modal) {
+        closeAddSiteModal();
+    }
+}
+
+// Handle form submission
+document.getElementById('addSiteForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formError = document.getElementById('formError');
+    const formSuccess = document.getElementById('formSuccess');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Hide previous messages
+    formError.style.display = 'none';
+    formSuccess.style.display = 'none';
+    
+    // Get form data
+    const siteCode = document.getElementById('siteCode').value.trim();
+    const friendlyName = document.getElementById('friendlyName').value.trim() || null;
+    
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding...';
+    
+    try {
+        const response = await fetch('/api/site/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                site_code: siteCode,
+                friendly_name: friendlyName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // Success
+            formSuccess.textContent = `Site "${friendlyName}" added successfully!`;
+            formSuccess.style.display = 'block';
+            
+            // Refresh sites list
+            setTimeout(() => {
+                closeAddSiteModal();
+                loadSites();
+            }, 1500);
+            
+        } else {
+            // Error from server
+            formError.textContent = data.detail || 'Failed to add site';
+            formError.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Add Site';
+        }
+        
+    } catch (error) {
+        console.error('Error adding site:', error);
+        formError.textContent = 'Network error. Please try again.';
+        formError.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add Site';
+    }
+});
 
 </script>
 
