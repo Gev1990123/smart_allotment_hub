@@ -39,7 +39,7 @@ class DeviceInfo(BaseModel):
 # ---------------------------------------------------------
 # HEALTH CHECK
 # ---------------------------------------------------------
-@app.get("/health")
+@app.get("/api/health")
 def health():
     try:
         conn = get_connection()
@@ -52,7 +52,7 @@ def health():
 # ---------------------------------------------------------
 # GET LATEST READINGS FOR DEVICE
 # ---------------------------------------------------------
-@app.get("/latest/{device_uid}")
+@app.get("/api/latest/{device_uid}")
 def get_latest(device_uid: str):
     try:
         conn = get_connection()
@@ -97,7 +97,7 @@ def get_latest(device_uid: str):
 # ---------------------------------------------------------
 # GET HISTORY FOR A DEVICE (using your new schema)
 # ---------------------------------------------------------
-@app.get("/history/{device_uid}")
+@app.get("/api/history/{device_uid}")
 def get_history(device_uid: str, hours: int = 24):
     try:
         conn = get_connection()
@@ -140,7 +140,7 @@ def get_history(device_uid: str, hours: int = 24):
 # ---------------------------------------------------------
 # LIST ALL UNIQUE DEVICES
 # ---------------------------------------------------------
-@app.get("/devices")
+@app.get("/api/devices")
 def list_devices():
     conn = None
     try:
@@ -167,7 +167,7 @@ def list_devices():
 # ---------------------------------------------------------
 # LIST ALL UNIQUE SENSORS
 # ---------------------------------------------------------
-@app.get("/sensors")
+@app.get("/api/sensors")
 def list_sensors():
     conn = None
     try:
@@ -194,7 +194,7 @@ def list_sensors():
 # -------------------------
 # Register a new device
 # -------------------------
-@app.post("/device/register", response_model=DeviceInfo)
+@app.post("/api/device/register", response_model=DeviceInfo)
 def register_device(device: DeviceCreate):
     conn = get_connection()
     cur = conn.cursor()

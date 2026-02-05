@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     async function loadDevices() {
         try {
-            const res = await fetch("/devices");
+            const res = await fetch("/api/devices");
             const data = await res.json();
 
             const select = document.getElementById("deviceSelect");
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     async function loadLatest(device_uid) {
         try {
-            const res = await fetch(`/latest/${device_uid}`);
+            const res = await fetch(`/api/latest/${device_uid}`);
             const readings = await res.json();
             console.log("Latest readings:", readings); // DEBUG
             
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // -----------------------------
     async function loadHistory(device_uid) {
         try {
-            const res = await fetch(`/history/${device_uid}?hours=2`);
+            const res = await fetch(`/api/history/${device_uid}?hours=2`);
             const data = await res.json();
             if (!Array.isArray(data) || data.length === 0) return;
 
