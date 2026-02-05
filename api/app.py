@@ -174,9 +174,9 @@ def list_sites():
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT DISTINCT site_code, friendly_name  FROM sites WHERE site_code IS NOT NULL ORDER BY site_code;")
+        cur.execute("SELECT DISTINCT site_code, friendly_name, id  FROM sites WHERE site_code IS NOT NULL ORDER BY site_code;")
         rows = cur.fetchall()
-        sites = [{"site_code": row[0], "friendly_name": row[1]} for row in rows]
+        sites = [{"site_code": row[0], "friendly_name": row[1], "id": row[2]} for row in rows]
 
         print(f"Found sites: {sites}")
         

@@ -21,6 +21,7 @@
 <nav>
     <a href="/">📊 Dashboard</a>
     <a href="/devices">📡 Devices</a>
+    <a href="/sites">📍 Sites</a>
 </nav>
 
 <main>
@@ -78,8 +79,9 @@
                     
                     <div class="form-group">
                         <label for="siteId">Site ID</label>
-                        <input type="number" id="siteId" name="site_id" 
-                               placeholder="e.g., 1" min="1">
+                        <select id="siteId" name="site_id">
+                            <option value="">Loading sites...</option>
+                        </select>
                         <small>Associated site/location ID (optional)</small>
                     </div>
                     
@@ -236,16 +238,35 @@ function renderDevices(devices) {
     }).join('');
 }
 
-// Note: viewDevice() and viewHistory() functions are now in scripts.js
-
 // ============================================
 // ADD DEVICE MODAL FUNCTIONS
 // ============================================
-function openAddDeviceModal() {
+async function openAddDeviceModal() {
     document.getElementById('addDeviceModal').style.display = 'block';
     document.getElementById('addDeviceForm').reset();
     document.getElementById('formError').style.display = 'none';
     document.getElementById('formSuccess').style.display = 'none';
+
+    // Populate sites dropdown
+    const siteSelect = document.getElementById('siteId');
+    siteSelect.innerHTML = '<option value="">Loading sites...</option>'; // Loading state
+    try {
+        const response = await fetch('/api/sites');
+        if (!response.ok) throw new Error('Failed to fetch sites');
+
+        const sites = await response.json();
+        siteSelect.innerHTML = '<option value="">Select a site (optional)</option>'; // Reset with placeholder
+        sites.forEach(site => {
+            const option = document.createElement('option');
+            option.value = site.id;  // Use 'id' field from your API response
+            option.textContent = site.friendly_name || site.id;  // Use 'name' or fallback to id
+            siteSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error fetching sites:', error);
+        siteSelect.innerHTML = '<option value="">Sites unavailable</option>';
+    }
+
 }
 
 function closeAddDeviceModal() {
