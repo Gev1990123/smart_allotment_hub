@@ -61,7 +61,7 @@ main {
     margin: auto;
 }
 
-.device-selector {
+.page-selector {
     background: #fff;
     padding: 20px 22px;
     border-radius: 10px;
@@ -504,7 +504,7 @@ button:hover {
         gap: 20px;
     }
 
-    .selector {
+    .page-selector {
         flex-direction: column;
         align-items: stretch;
         gap: 15px;
