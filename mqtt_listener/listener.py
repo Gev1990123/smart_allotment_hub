@@ -5,11 +5,9 @@ import json
 from datetime import datetime, timezone
 import os
 import time
-import logging
+from utils.logging import setup_logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = setup_logging("mqtt_listener")
 
 # Database config
 DB_HOST = os.getenv("PSQL_HOST", "database")

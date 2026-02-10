@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 import paho.mqtt.client as mqtt
+from utils.logging import setup_logger
 
 # -------------------------
 # Config from environment
@@ -25,21 +26,7 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 # -------------------------
 # Logging setup
 # -------------------------
-logger = logging.getLogger("logic")
-logger.setLevel(logging.INFO)
-
-# Clear existing handlers
-logger.handlers.clear()
-
-# StreamHandler with timestamps and immediate flush
-handler = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter(
-    fmt="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-handler.setFormatter(formatter)
-handler.flush = sys.stdout.flush
-logger.addHandler(handler)
+logger = setup_logger("logic")
 
 # -------------------------
 # MQTT client setup
