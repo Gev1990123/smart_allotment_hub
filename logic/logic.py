@@ -14,7 +14,7 @@ PUMP_RUN_SECONDS = float(5)
 RUN_INTERVAL = int(60)
 SKIP_INTERVAL = int(120)
 
-API_URL = os.getenv("API_URL", "http://api:8000")
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 LOGIC_API_TOKEN=os.getenv("LOGIC_API_TOKEN", "default-token")
 
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
