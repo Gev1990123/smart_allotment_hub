@@ -112,7 +112,8 @@ services:
       - api
       - mqtt
     environment:
-      API_URL: "http://api:8000"           # FastAPI container
+      API_URL: ${API_URL:-http://localhost:8000}           # FastAPI container
+      LOGIC_API_TOKEN: ${LOGIC_API_TOKEN}
       MQTT_HOST: "mqtt"
       MQTT_PORT: ${MQTT_PORT:-1883}                  
     networks:
