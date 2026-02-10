@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, status, Cookie
+from fastapi import FastAPI, Request, Depends, HTTPException, status, Cookie, Header
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -56,6 +56,19 @@ class UserCreate(BaseModel):
     full_name: str | None = None
     role: str = "user"
 
+class ApiTokenCreate(BaseModel):
+    name: str
+    description: str | None = None
+    scopes: list[str] = []
+    expires_days: int | None = None
+    device_uid: str | None = None  # For device tokens
+
+class SensorDataSubmit(BaseModel):
+    sensor_name: str
+    sensor_value: float
+    unit: str | None = None
+    sensor_type: str | None = None
+
 # -------------------------
 # Authentication Dependency
 # -------------------------
@@ -92,6 +105,61 @@ async def require_sys_admin(current_user: Dict = Depends(get_current_user)) -> D
             detail="Admin access required"
         )
     return current_user
+
+async def get_api_token_auth(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
+    """Dependency to authenticate via API token (from Authorization header)"""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API token required",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Expected format: "Bearer {token}" or just "{token}"
+    token = authorization
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+    
+    token_info = auth.validate_api_token(token)
+    if not token_info:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired API token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    return token_info
+
+async def get_auth_user_or_token(
+    session_token: Optional[str] = Cookie(None),
+    authorization: Optional[str] = Header(None)
+) -> Dict[str, Any]:
+    """
+    Dependency to accept either session cookie OR API token
+    Tries session first, then API token
+    """
+    # Try session cookie first
+    if session_token:
+        user = auth.validate_session(session_token)
+        if user:
+            user["auth_type"] = "session"
+            return user
+    
+    # Try API token
+    if authorization:
+        token = authorization
+        if authorization.startswith("Bearer "):
+            token = authorization[7:]
+        
+        token_info = auth.validate_api_token(token)
+        if token_info:
+            token_info["auth_type"] = "api_token"
+            return token_info
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required (session or API token)"
+    )
 
 # ---------------------------------------------------------
 # AUTHENTICATION ROUTES
@@ -240,6 +308,160 @@ async def unassign_user_from_site(user_id: int, site_id: int, admin: Dict = Depe
     return {"message": f"User {user_id} unassigned from site {site_id}"}
 
 # ---------------------------------------------------------
+# API TOKEN MANAGEMENT
+# ---------------------------------------------------------
+
+@app.post("/api/tokens/create")
+async def create_token(token_data: ApiTokenCreate, current_user: Dict = Depends(get_current_user)):
+    """Create a new API token (for current user or device)"""
+    
+    user_id = None
+    device_id = None
+    
+    # If device_uid provided, this is a device token (admin only)
+    if token_data.device_uid:
+        if current_user.get("role") != "sys_admin":
+            raise HTTPException(status_code=403, detail="Only admins can create device tokens")
+        
+        # Get device ID from UID
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM devices WHERE uid = %s;", (token_data.device_uid,))
+        row = cur.fetchone()
+        conn.close()
+        
+        if not row:
+            raise HTTPException(status_code=404, detail="Device not found")
+        device_id = row[0]
+    else:
+        # User token
+        user_id = current_user["user_id"]
+    
+    try:
+        token = auth.create_api_token(
+            name=token_data.name,
+            user_id=user_id,
+            device_id=device_id,
+            description=token_data.description,
+            scopes=token_data.scopes,
+            expires_days=token_data.expires_days,
+            created_by=current_user["user_id"]
+        )
+        
+        return {
+            "message": "Token created successfully",
+            "token": token["token"],  # Only shown once!
+            "id": token["id"],
+            "name": token["name"],
+            "scopes": token["scopes"],
+            "expires_at": token["expires_at"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tokens/list")
+async def list_my_tokens(current_user: Dict = Depends(get_current_user)):
+    """List current user's API tokens"""
+    tokens = auth.list_user_tokens(current_user["user_id"])
+    
+    # Don't return actual token values, just metadata
+    return {"tokens": tokens}
+
+
+@app.delete("/api/tokens/{token_id}/revoke")
+async def revoke_token(token_id: int, current_user: Dict = Depends(get_current_user)):
+    """Revoke (deactivate) an API token"""
+    
+    # Verify token belongs to current user or user is admin
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT token, user_id FROM api_tokens WHERE id = %s;
+    """, (token_id,))
+    
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Token not found")
+    
+    token_value, token_user_id = row
+    
+    # Check ownership or admin
+    if token_user_id != current_user["user_id"] and current_user.get("role") != "sys_admin":
+        raise HTTPException(status_code=403, detail="Not authorized to revoke this token")
+    
+    success = auth.revoke_api_token(token_value)
+    
+    if success:
+        return {"message": "Token revoked successfully"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to revoke token")
+
+@app.post("/api/data/submit")
+async def submit_sensor_data(
+    data: SensorDataSubmit,
+    token_info: Dict = Depends(get_api_token_auth)
+):
+    """Submit sensor data (API token only - typically from IoT devices)"""
+    
+    # Verify this is a device token
+    if token_info["type"] != "device":
+        raise HTTPException(status_code=403, detail="Device token required")
+    
+    # Check scope
+    if not auth.check_token_scope(token_info, "write:sensor_data"):
+        raise HTTPException(status_code=403, detail="Token lacks write:sensor_data scope")
+    
+    device_uid = token_info["device_uid"]
+    device_site_id = token_info["device_site_id"]
+    
+    if not device_site_id:
+        raise HTTPException(status_code=400, detail="Device must be assigned to a site")
+    
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Get device ID
+        cur.execute("SELECT id FROM devices WHERE uid = %s;", (device_uid,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        device_id = row[0]
+        
+        # Insert sensor data
+        cur.execute("""
+            INSERT INTO sensor_data (site_id, device_id, sensor_name, value, unit, sensor_type)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id;
+        """, (device_site_id, device_id, data.sensor_name, data.sensor_value, data.unit, data.sensor_type))
+        
+        data_id = cur.fetchone()[0]
+        
+        # Update device last_seen
+        cur.execute("""
+            UPDATE devices SET last_seen = NOW(), active = TRUE WHERE id = %s;
+        """, (device_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "message": "Data submitted successfully",
+            "data_id": data_id,
+            "device_uid": device_uid
+        }
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------
 # HEALTH CHECK
 # ---------------------------------------------------------
 @app.get("/api/health")
@@ -256,7 +478,7 @@ def health():
 # GET LATEST READINGS FOR DEVICE (with auth)
 # ---------------------------------------------------------
 @app.get("/api/latest/{device_uid}")
-def get_latest(device_uid: str, current_user: Dict = Depends(get_current_user)):
+def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_token)):
     """Get latest readings - requires authentication and device access"""
 
     # Check if user can access this device
@@ -310,7 +532,7 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_current_user)):
 # GET HISTORY FOR A DEVICE (with auth)
 # ---------------------------------------------------------
 @app.get("/api/history/{device_uid}")
-def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(get_current_user)):
+def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(get_auth_user_or_token)):
     """Get device history - requires authentication and device access"""
 
     # Check if user can access this device
@@ -362,7 +584,7 @@ def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(g
 # LIST ALL UNIQUE DEVICES (filtered by user access)
 # ---------------------------------------------------------
 @app.get("/api/devices")
-def list_devices(current_user: Dict = Depends(get_current_user)):
+def list_devices(current_user: Dict = Depends(get_auth_user_or_token)):
     """List devices - filtered by user's site access"""
 
     conn = None

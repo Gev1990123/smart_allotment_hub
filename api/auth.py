@@ -21,6 +21,227 @@ def verify_password(password: str, password_hash: str) -> bool:
     """Verify a password against its hash"""
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
+# ============================================
+# API TOKEN MANAGEMENT
+# ============================================
+
+def generate_api_token(prefix: str = "api") -> str:
+    """
+    Generate a secure API token
+    Format: {prefix}_{random_hex}
+    """
+    random_part = secrets.token_hex(32)  # 64 character hex string
+    return f"{prefix}_{random_part}"
+
+
+def create_api_token(
+    name: str,
+    user_id: Optional[int] = None,
+    device_id: Optional[int] = None,
+    description: Optional[str] = None,
+    scopes: Optional[list] = None,
+    expires_days: Optional[int] = None,
+    created_by: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Create a new API token
+    Either user_id or device_id must be provided
+    Returns dict with token details
+    """
+    if not user_id and not device_id:
+        raise ValueError("Either user_id or device_id must be provided")
+    
+    # Determine token prefix
+    prefix = "dev" if device_id else "usr"
+    token = generate_api_token(prefix)
+    
+    scopes = scopes or []
+    expires_at = None
+    if expires_days:
+        expires_at = datetime.now() + timedelta(days=expires_days)
+    
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        INSERT INTO api_tokens (token, user_id, device_id, name, description, scopes, expires_at, created_by)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id, token, name, scopes, expires_at, created_at;
+    """, (token, user_id, device_id, name, description, scopes, expires_at, created_by))
+    
+    row = cur.fetchone()
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": row[0],
+        "token": row[1],
+        "name": row[2],
+        "scopes": row[3],
+        "expires_at": row[4],
+        "created_at": row[5]
+    }
+
+
+def validate_api_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Validate an API token
+    Returns token info with associated user/device if valid, None if invalid
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    # Clean up expired tokens first
+    cur.execute("DELETE FROM api_tokens WHERE expires_at < NOW() AND expires_at IS NOT NULL;")
+    
+    # Get token info
+    cur.execute("""
+        SELECT 
+            t.id, t.token, t.user_id, t.device_id, t.name, t.scopes, t.expires_at,
+            u.username, u.role, u.email,
+            d.uid as device_uid, d.site_id
+        FROM api_tokens t
+        LEFT JOIN users u ON t.user_id = u.id
+        LEFT JOIN devices d ON t.device_id = d.id
+        WHERE t.token = %s 
+        AND t.active = TRUE
+        AND (t.expires_at IS NULL OR t.expires_at > NOW());
+    """, (token,))
+    
+    row = cur.fetchone()
+    
+    if not row:
+        conn.close()
+        return None
+    
+    # Update last_used timestamp
+    cur.execute("""
+        UPDATE api_tokens SET last_used = NOW() WHERE token = %s;
+    """, (token,))
+    
+    conn.commit()
+    conn.close()
+    
+    result = {
+        "token_id": row[0],
+        "token": row[1],
+        "user_id": row[2],
+        "device_id": row[3],
+        "token_name": row[4],
+        "scopes": row[5] or [],
+        "expires_at": row[6],
+        "type": "user" if row[2] else "device"
+    }
+    
+    # Add user info if user token
+    if row[2]:
+        result["username"] = row[7]
+        result["role"] = row[8]
+        result["email"] = row[9]
+    
+    # Add device info if device token
+    if row[3]:
+        result["device_uid"] = row[10]
+        result["device_site_id"] = row[11]
+    
+    return result
+
+
+def revoke_api_token(token: str) -> bool:
+    """Revoke (deactivate) an API token"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        UPDATE api_tokens SET active = FALSE WHERE token = %s;
+    """, (token,))
+    
+    affected = cur.rowcount
+    conn.commit()
+    conn.close()
+    
+    return affected > 0
+
+
+def list_user_tokens(user_id: int) -> list:
+    """List all tokens for a user"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT id, name, scopes, active, last_used, expires_at, created_at
+        FROM api_tokens
+        WHERE user_id = %s
+        ORDER BY created_at DESC;
+    """, (user_id,))
+    
+    tokens = []
+    for row in cur.fetchall():
+        tokens.append({
+            "id": row[0],
+            "name": row[1],
+            "scopes": row[2],
+            "active": row[3],
+            "last_used": row[4],
+            "expires_at": row[5],
+            "created_at": row[6]
+        })
+    
+    conn.close()
+    return tokens
+
+
+def list_device_tokens(device_id: int) -> list:
+    """List all tokens for a device"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT id, name, scopes, active, last_used, expires_at, created_at
+        FROM api_tokens
+        WHERE device_id = %s
+        ORDER BY created_at DESC;
+    """, (device_id,))
+    
+    tokens = []
+    for row in cur.fetchall():
+        tokens.append({
+            "id": row[0],
+            "name": row[1],
+            "scopes": row[2],
+            "active": row[3],
+            "last_used": row[4],
+            "expires_at": row[5],
+            "created_at": row[6]
+        })
+    
+    conn.close()
+    return tokens
+
+
+def check_token_scope(token_info: Dict[str, Any], required_scope: str) -> bool:
+    """
+    Check if a token has a required scope
+    Scopes format: 'read:sensors', 'write:sensor_data', 'admin:*'
+    """
+    scopes = token_info.get("scopes", [])
+    
+    # Admin wildcard
+    if "admin:*" in scopes:
+        return True
+    
+    # Exact match
+    if required_scope in scopes:
+        return True
+    
+    # Wildcard match (e.g., 'read:*' matches 'read:sensors')
+    scope_parts = required_scope.split(":")
+    if len(scope_parts) == 2:
+        wildcard = f"{scope_parts[0]}:*"
+        if wildcard in scopes:
+            return True
+    
+    return False
 
 # ============================================
 # SESSION MANAGEMENT
@@ -237,6 +458,19 @@ def user_can_access_device(user_id: int, device_uid: str) -> bool:
     
     return has_access
 
+def token_can_access_device(token_info: Dict[str, Any], device_uid: str) -> bool:
+    """Check if an API token can access a specific device"""
+    
+    # Device tokens can only access their own device
+    if token_info["type"] == "device":
+        return token_info.get("device_uid") == device_uid
+    
+    # User tokens follow user permissions
+    if token_info["type"] == "user":
+        user_id = token_info["user_id"]
+        return user_can_access_device(user_id, device_uid)
+    
+    return False
 
 def filter_devices_by_access(user_id: int, devices: list) -> list:
     """

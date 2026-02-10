@@ -142,3 +142,45 @@ COMMENT ON TABLE users IS 'User accounts for dashboard access';
 COMMENT ON TABLE user_site_assignments IS 'Maps users to sites they can access';
 COMMENT ON TABLE sessions IS 'Active user sessions';
 COMMENT ON COLUMN users.role IS 'sys_admin: full access, user: site-restricted access';
+
+-- ============================================
+-- API TOKEN AUTHENTICATION
+-- ============================================
+
+-- Create api_tokens table
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    device_id INTEGER REFERENCES devices(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    scopes TEXT[] DEFAULT '{}',  -- Array of permission scopes
+    active BOOLEAN DEFAULT TRUE,
+    last_used TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    created_by INTEGER REFERENCES users(id),
+    CONSTRAINT check_owner CHECK (user_id IS NOT NULL OR device_id IS NOT NULL)
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_device_id ON api_tokens(device_id);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(active);
+
+-- Function to clean up expired tokens
+CREATE OR REPLACE FUNCTION cleanup_expired_tokens()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM api_tokens WHERE expires_at < NOW() AND expires_at IS NOT NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON TABLE api_tokens IS 'API tokens for programmatic access (IoT devices, integrations, etc.)';
+COMMENT ON COLUMN api_tokens.token IS 'The actual API token (hashed in production)';
+COMMENT ON COLUMN api_tokens.user_id IS 'If token belongs to a user (for user API access)';
+COMMENT ON COLUMN api_tokens.device_id IS 'If token belongs to a device (for device data submission)';
+COMMENT ON COLUMN api_tokens.scopes IS 'Array of permission scopes (read:sensors, write:sensors, etc.)';
+COMMENT ON COLUMN api_tokens.name IS 'Human-readable name for the token';
