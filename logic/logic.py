@@ -15,6 +15,8 @@ RUN_INTERVAL = int(60)
 SKIP_INTERVAL = int(120)
 
 API_URL = os.getenv("API_URL", "http://api:8000")
+LOGIC_API_TOKEN=os.getenv("LOGIC_API_TOKEN", "default-token")
+
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
@@ -68,9 +70,10 @@ def trigger_pump(node_id: str, seconds: float):
 # Dynamic device fetcher
 # -------------------------
 
-def devices():
+def devices(headers):
     try:
-        resp = requests.get(f"{API_URL}/api/devices", timeout=10)
+
+        resp = requests.get(f"{API_URL}/api/devices", headers=headers, timeout=10)
         resp.raise_for_status()
         data = resp.json()
 
@@ -87,14 +90,20 @@ def devices():
 # -------------------------
 last_triggered = {}  # skip repeated triggers if moisture is still low
 
+headers = {
+            "Authorization": f"Bearer {LOGIC_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
 while True:
     try:
-        for DEVICE_UID in devices():
+        for DEVICE_UID in devices(headers):
             logger.info(f"Processing device {DEVICE_UID}")
 
 
             # Get latest readings from API
-            resp = requests.get(f"{API_URL}/api/latest/{DEVICE_UID}", timeout=10)
+
+            resp = requests.get(f"{API_URL}/api/latest/{DEVICE_UID}", headers=headers, timeout=10)
             resp.raise_for_status()
             sensors = resp.json()
 

@@ -109,7 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_user_site_assignments_site_id ON user_site_assign
 -- Create api_tokens table
 CREATE TABLE IF NOT EXISTS api_tokens (
     id SERIAL PRIMARY KEY,
-    token VARCHAR(64) UNIQUE NOT NULL,
+    token TEXT UNIQUE NOT NULL,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     device_id INTEGER REFERENCES devices(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
