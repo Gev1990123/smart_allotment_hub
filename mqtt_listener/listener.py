@@ -5,9 +5,9 @@ import json
 from datetime import datetime, timezone
 import os
 import time
-from utils.logging import setup_logging
+from utils.logging import setup_logger
 
-logger = setup_logging("mqtt_listener")
+logger = setup_logger("mqtt_listener")
 
 # Database config
 DB_HOST = os.getenv("PSQL_HOST", "database")
