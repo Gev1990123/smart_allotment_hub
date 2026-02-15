@@ -87,7 +87,6 @@ while True:
         for DEVICE_UID in devices(headers):
             logger.info(f"Processing device {DEVICE_UID}")
 
-
             # Get latest readings from API
 
             resp = requests.get(f"{API_URL}/api/latest/{DEVICE_UID}", headers=headers, timeout=10)
