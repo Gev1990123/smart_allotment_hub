@@ -29,6 +29,11 @@ if [ ! -f "$ENV_FILE" ]; then
   read -p "MQTT TLS port [8883]: " MQTT_TLS_PORT
   MQTT_TLS_PORT=${MQTT_TLS_PORT:-8883}
 
+  read -p "MQTT Username [mqtt_listener]: " MQTT_USERNAME
+  MQTT_USERNAME=${MQTT_USERNAME:-mqtt_listener}
+
+  read -s -p "MQTT Password: " MQTT_PASSWORD
+  MQTT_PASSWORD=${MQTT_PASSWORD:-mqtt_listener}
   read -p "API port [8000]: " API_PORT
   API_PORT=${API_PORT:-8000}
 
@@ -50,6 +55,8 @@ TZ=$TZ
 
 MQTT_PORT=$MQTT_PORT
 MQTT_TLS_PORT=$MQTT_TLS_PORT
+MQTT_USERNAME=$MQTT_USERNAME
+MQTT_PASSWORD=$MQTT_PASSWORD
 
 API_PORT=$API_PORT
 
@@ -104,10 +111,13 @@ cp "$CERTS_DIR/ca.crt" "$LISTENER_CERTS_DIR/ca.crt"
 # Set permissions
 chmod 600 "$CERTS_DIR/ca.key" "$CERTS_DIR/server.key"
 chmod 644 "$CERTS_DIR/ca.crt" "$CERTS_DIR/server.crt"
+sudo chown 1883:1883 ./mqtt/config/passwd
+sudo chmod 0600 ./mqtt/config/passwd
+sudo chown 1883:1883 ./mqtt/data/mosquitto.db
+sudo chmod 0700 ./mqtt/data/mosquitto.db
 
 # Clean up
 rm -f "$CERTS_DIR/server.csr"
-
 
 # Fix ownership
 sudo chown -R smartallotment:docker mqtt/certs mqtt_listener/certs
