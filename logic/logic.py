@@ -20,9 +20,8 @@ LOGIC_API_TOKEN=os.getenv("LOGIC_API_TOKEN", "default-token")
 
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
-
-MQTT_USER = os.getenv("MQTT_USERNAME", "your-username")
-MQTT_PASS = os.getenv("MQTT_PASSWORD", "your-password")
+MQTT_USER = os.getenv("MQTT_USERNAME", "")  # Empty from your docker-compose
+MQTT_PASS = os.getenv("MQTT_PASSWORD", "")  # Empty from your docker-compose
 
 #DEVICE_ID = os.getenv("DEVICE_ID", "SA-NODE1")
 

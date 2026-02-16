@@ -115,7 +115,9 @@ services:
       API_URL: ${API_URL:-http://api:8000}           # FastAPI container
       LOGIC_API_TOKEN: ${LOGIC_API_TOKEN}
       MQTT_HOST: "mqtt"
-      MQTT_PORT: ${MQTT_PORT:-1883}                  
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_USERNAME: ${MQTT_USERNAME:-mqtt_listener}  # Default to "mqtt_listener" if not set, but can be empty
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}  # Default to empty if not set               
     networks:
       - backend
 
