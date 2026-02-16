@@ -21,6 +21,9 @@ LOGIC_API_TOKEN=os.getenv("LOGIC_API_TOKEN", "default-token")
 MQTT_HOST = os.getenv("MQTT_HOST", "mqtt")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 
+MQTT_USER = os.getenv("MQTT_USERNAME", "your-username")
+MQTT_PASS = os.getenv("MQTT_PASSWORD", "your-password")
+
 #DEVICE_ID = os.getenv("DEVICE_ID", "SA-NODE1")
 
 # -------------------------
@@ -29,9 +32,8 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 logger = setup_logger("logic")
 
 # -------------------------
-# MQTT client setup
+# MQTT client setup  
 # -------------------------
-mqtt_client = mqtt.Client(client_id="logic-service")
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -39,6 +41,8 @@ def on_connect(client, userdata, flags, rc):
     else:
         logger.error(f"MQTT connection failed with rc={rc}")
 
+mqtt_client = mqtt.Client(client_id="logic-service")
+mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
 mqtt_client.on_connect = on_connect
 mqtt_client.connect(MQTT_HOST, MQTT_PORT, 60)
 mqtt_client.loop_start()
