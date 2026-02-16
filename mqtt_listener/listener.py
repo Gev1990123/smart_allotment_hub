@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import paho.mqtt.client as mqtt
 import psycopg2
 import json
@@ -66,6 +65,33 @@ def on_connect(client, userdata, flags, rc):
     else:
         logger.error(f"Connection failed with code {rc}")
 
+def validate_sensor(conn, device_id: int, sensor_id: str, sensor_type: str) -> bool:
+    """Check if sensor is registered and active for this device"""
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT id, active 
+        FROM sensors 
+        WHERE device_id = %s 
+        AND sensor_name = %s 
+        AND sensor_type = %s
+    """, (device_id, sensor_id, sensor_type))
+    
+    result = cur.fetchone()
+    cur.close()
+    
+    if not result:
+        logger.warning(f"Sensor {sensor_id} ({sensor_type}) not registered for device_id={device_id}")
+        return False
+    
+    sensor_db_id, active = result
+    
+    if not active:
+        logger.warning(f"Sensor {sensor_id} is registered but inactive for device_id={device_id}")
+        return False
+    
+    return True 
+
 def activate_device_if_needed(conn, uid: str) -> int | None:
     cur = conn.cursor()
 
@@ -101,16 +127,16 @@ def activate_device_if_needed(conn, uid: str) -> int | None:
 def on_message(client, userdata, msg):
 
     """
+    Expected payload:
     {
-    "device_id": "device001",
-    "sensors": [
-        {"type": "moisture", "id": "soil-sensor-001", "value": 65},
-        {"type": "moisture", "id": "soil-sensor-002", "value": 72},
-        {"type": "temperature", "id": "temp-sensor-001", "value": 18.2},
-        {"type": "light", "id": "light-sensor-001", "value": 450}
-    ]
+        "device_uid": "device001",
+        "sensors": [
+            {"type": "moisture", "id": "soil-sensor-001", "value": 65},
+            {"type": "moisture", "id": "soil-sensor-002", "value": 72},
+            {"type": "temperature", "id": "temp-sensor-001", "value": 18.2},
+            {"type": "light", "id": "light-sensor-001", "value": 450}
+        ]
     }
-
     """
     try:
         data = json.loads(msg.payload.decode())
@@ -119,9 +145,7 @@ def on_message(client, userdata, msg):
         conn = connect_db()
 
         # Extract UID
-        # device_uid = data.get('device_id', msg.topic.split('/')[1])
         device_uid = data['device_uid']
-
 
         if device_uid.endswith("UNKNOWN"):
             logger.error("Device has UNKNOWN serial, rejecting")
@@ -134,11 +158,22 @@ def on_message(client, userdata, msg):
             return  # ❌ Stop processing unknown devices
 
         cur = conn.cursor()
+
+        # Track valid and rejected sensors
+        valid_sensors = []
+        rejected_sensors = []
         
         # Loop through all sensors in the payload
         for sensor in data.get('sensors', []):
             sensor_id = sensor['id']
+            sensor_type = sensor['type']
+
+            # Validate sensor registration
+            if not validate_sensor(conn, device_db_id, sensor_id, sensor_type):
+                rejected_sensors.append(f"{sensor_id} ({sensor_type})")
+                continue  # Skip this sensor
             
+            # Determine unit based on sensor type
             if sensor['type'] == 'moisture':
                 sensor_unit = '%'
             elif sensor['type'] == 'temperature':
@@ -178,12 +213,29 @@ def on_message(client, userdata, msg):
                 sensor['type'],
                 sensor['value'],
                 sensor_unit
-            ))                    
+            ))  
+
+            # Update last_value and last_seen in sensors table
+            cur.execute("""
+                UPDATE sensors
+                SET last_value = %s,
+                    last_seen = %s
+                WHERE device_id = %s
+                AND sensor_name = %s
+                AND sensor_type = %s
+            """, (sensor['value'], current_time, device_db_id, sensor_id, sensor_type))
+            
+            valid_sensors.append(sensor_id)                  
         
         conn.commit()
         cur.close()
         conn.close()
-        logger.info(f"Saved {len(data.get('sensors', []))} sensors from {device_uid}")
+
+        # Log results
+        if valid_sensors:
+            logger.info(f"✅ Saved {len(valid_sensors)} sensors from {device_uid}: {', '.join(valid_sensors)}")
+        if rejected_sensors:
+            logger.warning(f"❌ Rejected {len(rejected_sensors)} unregistered sensors from {device_uid}: {', '.join(rejected_sensors)}")
         
     except Exception as e:
         logger.error(f"Error processing message: {e}")

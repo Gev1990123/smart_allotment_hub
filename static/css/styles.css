@@ -583,8 +583,91 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------
+   SENSORS TABLE STYLES
+--------------------------------------------------------- */
+.sensors-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.sensors-table thead {
+    background: #f0f0f0;
+    border-bottom: 2px solid #2e7d32;
+}
+
+.sensors-table th {
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+}
+
+.sensors-table tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background 0.2s;
+}
+
+.sensors-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.sensors-table tbody tr.inactive-row {
+    opacity: 0.6;
+}
+
+.sensors-table td {
+    padding: 12px 15px;
+    vertical-align: middle;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    white-space: nowrap;
+}
+
+.btn-small.btn-secondary {
+    background: #666;
+    color: white;
+}
+
+.btn-small.btn-secondary:hover {
+    background: #555;
+}
+
+.btn-small.btn-danger {
+    background: #e53935;
+    color: white;
+}
+
+.btn-small.btn-danger:hover {
+    background: #c62828;
+}
+
+/* ---------------------------------------------------------
    RESPONSIVE DESIGN
 --------------------------------------------------------- */
+@media (max-width: 1200px) {
+    .sensors-table {
+        font-size: 13px;
+    }
+    
+    .sensors-table th,
+    .sensors-table td {
+        padding: 10px 12px;
+    }
+    
+    .btn-small {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+}
+
 @media (max-width: 768px) {
     main {
         padding: 15px;
@@ -654,5 +737,41 @@ button:disabled {
 
         .login-card {
         padding: 30px 20px;
+    }
+
+        .sensors-table thead {
+        display: none;
+    }
+    
+    .sensors-table,
+    .sensors-table tbody,
+    .sensors-table tr,
+    .sensors-table td {
+        display: block;
+        width: 100%;
+    }
+    
+    .sensors-table tr {
+        margin-bottom: 15px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 15px;
+        background: white;
+    }
+    
+    .sensors-table td {
+        padding: 8px 0;
+        border: none;
+        position: relative;
+        padding-left: 50%;
+    }
+    
+    .sensors-table td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 45%;
+        font-weight: 600;
+        color: #666;
     }
 }

@@ -69,6 +69,26 @@ class SensorDataSubmit(BaseModel):
     unit: str | None = None
     sensor_type: str | None = None
 
+class SensorRegister(BaseModel):
+    device_uid: str
+    sensor_name: str
+    sensor_type: str
+    unit: str | None = None
+    notes: str | None = None
+
+class SensorInfo(BaseModel):
+    id: int
+    device_id: int
+    device_uid: str
+    sensor_name: str
+    sensor_type: str
+    unit: str | None
+    active: bool
+    last_value: float | None
+    last_seen: str | None
+    notes: str | None
+    created_at: str | None
+
 # -------------------------
 # Authentication Dependency
 # -------------------------
@@ -743,6 +763,320 @@ def register_site(site: SiteCreate, admin: Dict = Depends(require_sys_admin)):
     }
 
 # ---------------------------------------------------------
+# SENSOR MANAGEMENT ENDPOINTS
+# ---------------------------------------------------------
+
+@app.get("/api/sensors/list")
+async def list_sensors(current_user: Dict = Depends(get_current_user)):
+    """List all sensors (filtered by user's site access)"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get user's allowed sites
+        allowed_sites = auth.get_user_site_access(current_user["user_id"])
+        
+        # sys_admin gets all sensors
+        if not allowed_sites:
+            cur.execute("""
+                SELECT 
+                    s.id, s.device_id, d.uid as device_uid, s.sensor_name, 
+                    s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
+                    s.notes, s.created_at
+                FROM sensors s
+                JOIN devices d ON s.device_id = d.id
+                ORDER BY d.uid, s.sensor_name;
+            """)
+        else:
+            # Regular users only see sensors from their assigned sites
+            placeholders = ','.join(['%s'] * len(allowed_sites))
+            cur.execute(f"""
+                SELECT 
+                    s.id, s.device_id, d.uid as device_uid, s.sensor_name, 
+                    s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
+                    s.notes, s.created_at
+                FROM sensors s
+                JOIN devices d ON s.device_id = d.id
+                WHERE d.site_id IN ({placeholders})
+                ORDER BY d.uid, s.sensor_name;
+            """, allowed_sites)
+        
+        rows = cur.fetchall()
+        
+        sensors = []
+        for row in rows:
+            sensors.append({
+                "id": row[0],
+                "device_id": row[1],
+                "device_uid": row[2],
+                "sensor_name": row[3],
+                "sensor_type": row[4],
+                "unit": row[5],
+                "active": row[6],
+                "last_value": float(row[7]) if row[7] is not None else None,
+                "last_seen": row[8].isoformat() if row[8] else None,
+                "notes": row[9],
+                "created_at": row[10].isoformat() if row[10] else None
+            })
+        
+        cur.close()
+        conn.close()
+        
+        return {"sensors": sensors}
+        
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sensors/register")
+async def register_sensor(
+    sensor_data: SensorRegister, 
+    current_user: Dict = Depends(get_current_user)
+):
+    """Register a new sensor (admin or device owner)"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get device ID from UID
+        cur.execute("""
+            SELECT id, site_id FROM devices WHERE uid = %s;
+        """, (sensor_data.device_uid,))
+        
+        device_row = cur.fetchone()
+        
+        if not device_row:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Device not found")
+        
+        device_id, site_id = device_row
+        
+        # Check if user can access this device
+        if not auth.user_can_access_device(current_user["user_id"], sensor_data.device_uid):
+            conn.close()
+            raise HTTPException(
+                status_code=403, 
+                detail="You don't have access to this device"
+            )
+        
+        # Check if sensor already exists for this device
+        cur.execute("""
+            SELECT id FROM sensors 
+            WHERE device_id = %s AND sensor_name = %s;
+        """, (device_id, sensor_data.sensor_name))
+        
+        if cur.fetchone():
+            conn.close()
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Sensor '{sensor_data.sensor_name}' already exists for this device"
+            )
+        
+        # Auto-determine unit if not provided
+        unit = sensor_data.unit
+        if not unit:
+            unit_map = {
+                'moisture': '%',
+                'temperature': '°C',
+                'light': 'lx'
+            }
+            unit = unit_map.get(sensor_data.sensor_type, '')
+        
+        # Insert sensor
+        cur.execute("""
+            INSERT INTO sensors (
+                device_id, sensor_name, sensor_type, unit, 
+                active, notes, created_at, registered_by
+            )
+            VALUES (%s, %s, %s, %s, TRUE, %s, NOW(), %s)
+            RETURNING id, sensor_name, sensor_type, unit, active, created_at;
+        """, (
+            device_id, 
+            sensor_data.sensor_name, 
+            sensor_data.sensor_type, 
+            unit, 
+            sensor_data.notes,
+            current_user["user_id"]
+        ))
+        
+        new_sensor = cur.fetchone()
+        conn.commit()
+        conn.close()
+        
+        return {
+            "message": "Sensor registered successfully",
+            "sensor": {
+                "id": new_sensor[0],
+                "sensor_name": new_sensor[1],
+                "sensor_type": new_sensor[2],
+                "unit": new_sensor[3],
+                "active": new_sensor[4],
+                "created_at": new_sensor[5].isoformat() if new_sensor[5] else None
+            }
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.close()
+        raise
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sensors/{sensor_id}/activate")
+async def activate_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
+    """Activate a sensor"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get sensor info
+        cur.execute("""
+            SELECT s.id, d.uid as device_uid 
+            FROM sensors s
+            JOIN devices d ON s.device_id = d.id
+            WHERE s.id = %s;
+        """, (sensor_id,))
+        
+        sensor = cur.fetchone()
+        
+        if not sensor:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Sensor not found")
+        
+        device_uid = sensor[1]
+        
+        # Check access
+        if not auth.user_can_access_device(current_user["user_id"], device_uid):
+            conn.close()
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Activate sensor
+        cur.execute("""
+            UPDATE sensors 
+            SET active = TRUE 
+            WHERE id = %s;
+        """, (sensor_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {"message": "Sensor activated successfully"}
+        
+    except HTTPException:
+        if conn:
+            conn.close()
+        raise
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sensors/{sensor_id}/deactivate")
+async def deactivate_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
+    """Deactivate a sensor"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get sensor info
+        cur.execute("""
+            SELECT s.id, d.uid as device_uid 
+            FROM sensors s
+            JOIN devices d ON s.device_id = d.id
+            WHERE s.id = %s;
+        """, (sensor_id,))
+        
+        sensor = cur.fetchone()
+        
+        if not sensor:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Sensor not found")
+        
+        device_uid = sensor[1]
+        
+        # Check access
+        if not auth.user_can_access_device(current_user["user_id"], device_uid):
+            conn.close()
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Deactivate sensor
+        cur.execute("""
+            UPDATE sensors 
+            SET active = FALSE 
+            WHERE id = %s;
+        """, (sensor_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {"message": "Sensor deactivated successfully"}
+        
+    except HTTPException:
+        if conn:
+            conn.close()
+        raise
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/sensors/{sensor_id}/delete")
+async def delete_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
+    """Delete a sensor (admin only or device owner)"""
+    conn = get_connection()
+    cur = conn.cursor()
+    
+    try:
+        # Get sensor info
+        cur.execute("""
+            SELECT s.id, s.sensor_name, d.uid as device_uid 
+            FROM sensors s
+            JOIN devices d ON s.device_id = d.id
+            WHERE s.id = %s;
+        """, (sensor_id,))
+        
+        sensor = cur.fetchone()
+        
+        if not sensor:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Sensor not found")
+        
+        sensor_name = sensor[1]
+        device_uid = sensor[2]
+        
+        # Check access
+        if not auth.user_can_access_device(current_user["user_id"], device_uid):
+            conn.close()
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Delete sensor
+        cur.execute("DELETE FROM sensors WHERE id = %s;", (sensor_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "message": f"Sensor '{sensor_name}' deleted successfully"
+        }
+        
+    except HTTPException:
+        if conn:
+            conn.close()
+        raise
+    except Exception as e:
+        if conn:
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------
 # UI ROUTES (HTML Templates)
 # ---------------------------------------------------------
 
@@ -814,3 +1148,15 @@ def site_page(site_id: int, request: Request, current_user: Optional[Dict] = Dep
         "site.html",
         {"request": request, "site_id": site_id, "user": current_user}
     )
+
+@app.get("/sensors")
+def sensors_page(request: Request, current_user: Optional[Dict] = Depends(get_optional_user)):
+    """Sensors management page - redirects to login if not authenticated"""
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    
+    return templates.TemplateResponse("sensors.html", {
+        "request": request,
+        "user": current_user
+    })
+
