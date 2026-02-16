@@ -29,11 +29,15 @@ CREATE TABLE IF NOT EXISTS sensors (
     device_id INT NOT NULL REFERENCES devices(id),
     sensor_name VARCHAR(50) NOT NULL,
     sensor_type VARCHAR(20) NOT NULL,
+    active BOOLEAN DEFAULT FALSE,
     unit VARCHAR(10),
     last_value FLOAT,
     last_seen TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
     CONSTRAINT uq_device_sensor UNIQUE(device_id, sensor_name)
 );
+
+CREATE INDEX IF NOT EXISTS idx_sensors_device_sensor ON sensors(device_id, sensor_name, active);
 
 -- -------------------------
 -- SENSOR DATA (readings)
