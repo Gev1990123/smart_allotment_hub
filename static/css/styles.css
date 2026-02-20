@@ -621,6 +621,279 @@ canvas {
     font-size: 13px;
 }
 
+/* ---------------------------------------------------------
+   Users Page Specific Styles
+--------------------------------------------------------- */
+
+.users-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.users-header h2 {
+    margin: 0;
+    color: #2e7d32;
+    font-size: 22px;
+}
+
+.users-table-wrap {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.users-table thead {
+    background: #f0f4f0;
+    border-bottom: 2px solid #2e7d32;
+}
+
+.users-table th {
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #444;
+    white-space: nowrap;
+}
+
+.users-table tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background 0.15s;
+}
+
+.users-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.users-table tbody tr:hover {
+    background: #f9fdf9;
+}
+
+.users-table td {
+    padding: 13px 16px;
+    vertical-align: middle;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.role-badge.sys_admin {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.role-badge.user {
+    background: #f3f4f6;
+    color: #555;
+    border: 1px solid #ddd;
+}
+
+.actions-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Site Assignment Section */
+.site-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.site-chip {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.no-sites {
+    color: #aaa;
+    font-style: italic;
+    font-size: 13px;
+}
+
+/* Edit User Modal */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    background: #fafafa;
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #2e7d32;
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+}
+
+.password-hint {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+}
+
+/* Site Assignment Modal */
+.sites-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 260px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.site-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.site-checkbox-item:hover {
+    background: #f0f4f0;
+}
+
+.site-checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #2e7d32;
+}
+
+.site-checkbox-label {
+    flex: 1;
+}
+
+.site-checkbox-label strong {
+    display: block;
+    font-size: 14px;
+    color: #333;
+}
+
+.site-checkbox-label span {
+    font-size: 12px;
+    color: #888;
+}
+
+/* Danger confirm modal */
+.danger-text {
+    color: #c62828;
+    font-weight: 600;
+}
+
+.btn-danger {
+    background: #e53935;
+}
+
+.btn-danger:hover {
+    background: #c62828;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #aaa;
+}
+
+.empty-state .empty-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+}
+
+.empty-state p {
+    font-size: 16px;
+}
+
+/* Loading row */
+.loading-row td {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .users-table thead {
+        display: none;
+    }
+
+    .users-table,
+    .users-table tbody,
+    .users-table tr,
+    .users-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .users-table tr {
+        margin-bottom: 12px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 14px;
+        background: white;
+    }
+
+    .users-table td {
+        padding: 6px 0;
+        border: none;
+        padding-left: 45%;
+        position: relative;
+    }
+
+    .users-table td:before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 42%;
+        font-weight: 600;
+        color: #666;
+        font-size: 12px;
+    }
+
+    .actions-cell {
+        flex-wrap: wrap;
+    }
+}
+
 
 /* ---------------------------------------------------------
    BUTTONS

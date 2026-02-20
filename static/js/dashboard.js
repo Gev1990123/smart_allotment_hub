@@ -327,12 +327,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!Array.isArray(data)) throw new Error('Unexpected response');
 
             // DEBUG — remove once working
-            console.log('History rows:', data.length);
-            if (data.length > 0) {
-                console.log('First row:', JSON.stringify(data[0]));
-                const types = [...new Set(data.map(r => r.sensor_type))];
-                console.log('Unique sensor_type values:', types);
-            }
+            //console.log('History rows:', data.length);
+            //if (data.length > 0) {
+            //    console.log('First row:', JSON.stringify(data[0]));
+            //    const types = [...new Set(data.map(r => r.sensor_type))];
+            //    console.log('Unique sensor_type values:', types);
+            //}
 
             updateChart(tempChart,     'temperature', data, '#2196f3');
             updateChart(moistureChart, 'moisture',    data, '#4caf50');
