@@ -8,14 +8,14 @@ document.addEventListener('DOMContentLoaded', function () {
     let currentDeviceUid = null;
 
     // Active range: either { hours } or { from, to } ISO strings
-    let activeRange = { hours: 1 };
+    let activeRange = { hours: 24 };
 
     // ─── Initialise datetime pickers to sensible defaults ─
     function setDefaultDatetimeInputs() {
         const now = new Date();
-        const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+        const dayAgo = new Date(now - 24 * 60 * 60 * 1000);
         document.getElementById('rangeTo').value   = toLocalDatetimeInput(now);
-        document.getElementById('rangeFrom').value = toLocalDatetimeInput(yesterday);
+        document.getElementById('rangeFrom').value = toLocalDatetimeInput(dayAgo);
     }
 
     /** Convert a Date to the value format needed by datetime-local inputs */
@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     setDefaultDatetimeInputs();
+
+    /** Normalise a timestamp - adds Z if no timezone present so JS parses it as UTC */
+    function parseTs(ts) {
+        if (!ts) return null;
+        if (!ts.endsWith('Z') && !ts.includes('+')) return new Date(ts + 'Z');
+        return new Date(ts);
+    }
 
     // ─── Preset buttons ───────────────────────────────────
     document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -180,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     callbacks: {
                         title: items => {
                             const ts = items[0]?.label;
-                            return ts ? new Date(ts).toLocaleString([], {
+                            return ts ? parseTs(ts).toLocaleString([], {
                                 month:'short', day:'numeric',
                                 hour:'2-digit', minute:'2-digit'
                             }) : '';
@@ -195,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         maxRotation: 0,
                         callback: function(val, idx) {
                             const label = this.getLabelForValue(val);
-                            return label ? new Date(label).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+                            return label ? parseTs(label).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
                         }
                     },
                     grid: { color: '#f0f0f0' }
@@ -230,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const el = document.getElementById(`${type}Meta`);
         if (!count) { el.textContent = ''; return; }
         const fmtOpts = { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' };
-        el.textContent = `${count} readings · ${new Date(fromTs).toLocaleString([], fmtOpts)} – ${new Date(toTs).toLocaleString([], fmtOpts)}`;
+        el.textContent = `${count} readings · ${parseTs(fromTs).toLocaleString([], fmtOpts)} – ${parseTs(toTs).toLocaleString([], fmtOpts)}`;
     }
 
     function updateChart(chart, type, data, color) {
@@ -240,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const from = new Date(activeRange.from);
             const to   = new Date(activeRange.to);
             filtered = filtered.filter(r => {
-                const t = new Date(r.timestamp);
+                const t = parseTs(r.timestamp);
                 return t >= from && t <= to;
             });
         }

@@ -310,6 +310,8 @@ select {
 --------------------------------------------------------- */
 .chart-wrapper {
     position: relative;
+    height: 280px;
+    flex-shrink: 0;
 }
 
 .chart-loading {
@@ -472,9 +474,13 @@ select {
 }
 
 .chart-container {
+    background: #fff;
     padding: 25px;
-    position: relative;
-    height: 500px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 0;        /* charts-grid gap handles spacing */
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-container h3 {
