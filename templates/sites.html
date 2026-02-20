@@ -24,6 +24,9 @@
         <a href="/devices">📡 Devices</a>
         <a href="/sites">🏡 Sites</a>
         <a href="/sensors">🔧 Sensors</a>
+        {% if user.role == 'sys_admin' %}
+        <a href="/users">👤 Users</a>
+        {% endif %}
     </div>
     <div class="nav-user">
         <span class="user-info">
