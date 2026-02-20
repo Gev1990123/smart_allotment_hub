@@ -148,6 +148,264 @@ select {
 }
 
 /* ---------------------------------------------------------
+   TIME RANGE CONTROL BAR
+--------------------------------------------------------- */
+.time-control-bar {
+    background: #fff;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 18px;
+}
+
+.time-control-bar .section-title {
+    width: 100%;
+    font-size: 13px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 2px;
+}
+
+.preset-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.preset-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    white-space: nowrap;
+    margin-bottom: 0;
+}
+
+.preset-btn {
+    background: #f0f4f0;
+    color: #2e7d32;
+    border: 1.5px solid #c8e6c9;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.preset-btn:hover {
+    background: #e8f5e9;
+    border-color: #2e7d32;
+}
+
+.preset-btn.active {
+    background: #2e7d32;
+    color: #fff;
+    border-color: #2e7d32;
+    box-shadow: 0 3px 8px rgba(46,125,50,0.3);
+}
+
+.tc-divider {
+    width: 1px;
+    height: 36px;
+    background: #e0e0e0;
+    flex-shrink: 0;
+}
+
+.custom-range-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.custom-range-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 0;
+}
+
+.datetime-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.datetime-field span {
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.datetime-field input[type="datetime-local"] {
+    padding: 7px 10px;
+    border: 1.5px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #333;
+    background: #fafafa;
+    transition: border-color 0.2s;
+    width: 190px;
+}
+
+.datetime-field input[type="datetime-local"]:focus {
+    outline: none;
+    border-color: #2e7d32;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(46,125,50,0.1);
+}
+
+.apply-btn {
+    background: #2e7d32;
+    color: white;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    white-space: nowrap;
+    align-self: flex-end;
+}
+
+.apply-btn:hover {
+    background: #256428;
+    transform: translateY(-1px);
+}
+
+.apply-btn:active {
+    transform: translateY(0);
+}
+
+.active-range-label {
+    margin-left: auto;
+    font-size: 13px;
+    color: #666;
+    background: #f5f5f5;
+    border-radius: 6px;
+    padding: 8px 14px;
+    white-space: nowrap;
+    align-self: center;
+    border: 1px solid #e0e0e0;
+}
+
+.active-range-label strong {
+    color: #2e7d32;
+}
+
+/* ---------------------------------------------------------
+   CHART LOADING & NO-DATA STATES
+--------------------------------------------------------- */
+.chart-wrapper {
+    position: relative;
+}
+
+.chart-loading {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.8);
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #666;
+    gap: 10px;
+    z-index: 10;
+}
+
+.chart-loading.visible {
+    display: flex;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #e0e0e0;
+    border-top-color: #2e7d32;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.no-data-msg {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #aaa;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.no-data-msg.visible {
+    display: flex;
+}
+
+.no-data-msg .no-data-icon {
+    font-size: 32px;
+    opacity: 0.4;
+}
+
+.chart-meta {
+    font-size: 12px;
+    color: #999;
+    margin-top: -12px;
+    margin-bottom: 12px;
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE — time control bar
+--------------------------------------------------------- */
+@media (max-width: 768px) {
+    .time-control-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+    }
+
+    .tc-divider {
+        width: 100%;
+        height: 1px;
+    }
+
+    .custom-range-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .datetime-field input[type="datetime-local"] {
+        width: 100%;
+    }
+
+    .active-range-label {
+        margin-left: 0;
+    }
+
+    .apply-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* ---------------------------------------------------------
    SENSOR DASHBOARD GRID
 --------------------------------------------------------- */
 .sensor-grid {

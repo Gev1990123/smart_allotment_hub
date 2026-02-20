@@ -7,11 +7,17 @@
     <!-- CSS -->
     <link rel="stylesheet" href="/static/css/styles.css">
 
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
     <!-- Shared Scripts -->
     <script src="/static/js/scripts.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+
 </head>
 
 <body>
@@ -75,201 +81,77 @@
         </div>
     </div>
 
+   <!-- Time Range Control -->
+    <div class="time-control-bar">
+        <div class="section-title">📅 History Time Range</div>
+
+        <!-- Quick presets -->
+        <div class="preset-group">
+            <label>Quick:</label>
+            <button class="preset-btn active" data-hours="1">1h</button>
+            <button class="preset-btn" data-hours="2">2h</button>
+            <button class="preset-btn" data-hours="6">6h</button>
+            <button class="preset-btn" data-hours="12">12h</button>
+            <button class="preset-btn" data-hours="24">24h</button>
+            <button class="preset-btn" data-hours="48">48h</button>
+            <button class="preset-btn" data-hours="168">7d</button>
+            <button class="preset-btn" data-hours="720">30d</button>
+        </div>
+
+        <div class="tc-divider"></div>
+
+        <!-- Custom date range -->
+        <div class="custom-range-group">
+            <label>Custom:</label>
+            <div class="datetime-field">
+                <span>From</span>
+                <input type="datetime-local" id="rangeFrom" />
+            </div>
+            <div class="datetime-field">
+                <span>To</span>
+                <input type="datetime-local" id="rangeTo" />
+            </div>
+            <button class="apply-btn" id="applyRangeBtn">Apply Range</button>
+        </div>
+
+        <!-- Active range display -->
+        <div class="active-range-label" id="activeRangeLabel">
+            Showing: <strong>last 1 hour</strong>
+        </div>
+    </div>
+
     <!-- Chart Area -->
     <div class="charts-grid">
         <div class="chart-container">
             <h3>🌡️ Temperature (°C)</h3>
-            <canvas id="tempChart"></canvas>
+            <p class="chart-meta" id="tempMeta"></p>
+            <div class="chart-wrapper">
+                <canvas id="tempChart"></canvas>
+                <div class="chart-loading" id="tempLoading"><div class="spinner"></div> Loading…</div>
+                <div class="no-data-msg" id="tempNoData"><div class="no-data-icon">🌡️</div>No temperature data in range</div>
+            </div>
         </div>
+
         <div class="chart-container">
             <h3>💧 Moisture (%)</h3>
-            <canvas id="moistureChart"></canvas>
+            <p class="chart-meta" id="moistureMeta"></p>
+            <div class="chart-wrapper">
+                <canvas id="moistureChart"></canvas>
+                <div class="chart-loading" id="moistureLoading"><div class="spinner"></div> Loading…</div>
+                <div class="no-data-msg" id="moistureNoData"><div class="no-data-icon">💧</div>No moisture data in range</div>
+            </div>
         </div>
         <div class="chart-container">
             <h3>☀️ Light (lux)</h3>
-            <canvas id="lightChart"></canvas>
+            <p class="chart-meta" id="lightMeta"></p>
+            <div class="chart-wrapper">
+                <canvas id="lightChart"></canvas>
+                <div class="chart-loading" id="lightLoading"><div class="spinner"></div> Loading…</div>
+                <div class="no-data-msg" id="lightNoData"><div class="no-data-icon">☀️</div>No light data in range</div>
+            </div>
         </div>
     </div>
 
 </main>
-
-<script>
-// ============================================
-// DASHBOARD PAGE SPECIFIC JAVASCRIPT
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
-    // -----------------------------
-    // Fetch list of devices
-    // -----------------------------
-    async function loadDevices() {
-        try {
-            const res = await fetch("/api/devices");
-            const data = await res.json();
-
-            const select = document.getElementById("deviceSelect");
-            select.innerHTML = "";
-
-            data.devices.forEach(device => {
-                const opt = document.createElement("option");
-                opt.value = device.uid;
-                opt.textContent = device.name;
-                select.appendChild(opt);
-            });
-
-            if (data.devices.length > 0) {
-                loadLatest(data.devices[0].uid);  
-                loadHistory(data.devices[0].uid);
-            }
-        } catch (e) {
-            console.error("Failed to load devices:", e);
-            // Fallback
-            document.getElementById("deviceSelect").innerHTML = '<option value="SA-NODE1">SA-NODE1</option>';
-            loadLatest("SA-NODE1");
-            loadHistory("SA-NODE1");
-        }
-    }
-
-    document.getElementById("deviceSelect").addEventListener("change", e => {
-        const device_id = e.target.value;
-        if (device_id) {
-            loadLatest(device_id);
-            loadHistory(device_id);
-        }
-    });
-
-    // -----------------------------
-    // Fetch latest reading
-    // -----------------------------
-    async function loadLatest(device_uid) {
-        try {
-            const res = await fetch(`/api/latest/${device_uid}`);
-            const readings = await res.json();
-            console.log("Latest readings:", readings); // DEBUG
-            
-            if (!Array.isArray(readings) || readings.length === 0) {
-                document.getElementById("statusValue").textContent = "No Data";
-                return;
-            }
-
-            // Direct mapping - find each sensor by type
-            const tempReading = readings.find(r => r.sensor_type === 'temperature');
-            const moistureReading = readings.find(r => r.sensor_type === 'moisture');
-            const lightReading = readings.find(r => r.sensor_type === 'light');
-
-            // Update each card directly
-            document.getElementById("tempValue").textContent = 
-                tempReading ? tempReading.sensor_value.toFixed(1) : "--";
-            document.getElementById("moistureValue").textContent = 
-                moistureReading ? moistureReading.sensor_value.toFixed(1) : "--";
-            document.getElementById("lightValue").textContent = 
-                lightReading ? lightReading.sensor_value.toFixed(1) : "--";
-                
-            document.getElementById("statusValue").textContent = 
-                `Live - ${new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}`;
-
-        } catch (e) {
-            console.error("Latest failed:", e);
-            document.getElementById("statusValue").textContent = "Error";
-        }
-    }
-
-
-
-    // -----------------------------
-    // Create 3 separate charts
-    // -----------------------------
-    const tempCtx = document.getElementById("tempChart").getContext("2d");
-    const moistureCtx = document.getElementById("moistureChart").getContext("2d"); 
-    const lightCtx = document.getElementById("lightChart").getContext("2d");
-
-    const tempChart = new Chart(tempCtx, {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                x: { title: { display: true, text: "Time" } },
-                y: { min: 10, max: 30, title: { display: true, text: "°C" } }
-            }
-        }
-    });
-
-    const moistureChart = new Chart(moistureCtx, {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                x: { title: { display: true, text: "Time" } },
-                y: { min: 0, max: 110, title: { display: true, text: "%" } }
-            }
-        }
-    });
-
-    const lightChart = new Chart(lightCtx, {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { 
-                x: { title: { display: true, text: "Time" } },
-                y: { min: 0, max: 10000, title: { display: true, text: "lux" } }
-            }
-        }
-    });
-
-    // Helper function
-    function updateSingleChart(chart, times, timestamps, readings, type) {
-        const values = timestamps.map(ts => {
-            const reading = readings.find(r => r.timestamp === ts);
-            return reading ? reading.sensor_value : null;
-        });
-        
-        chart.data.labels = times;
-        chart.data.datasets = [{
-            label: type.charAt(0).toUpperCase() + type.slice(1),
-            data: values,
-            borderColor: type === 'light' ? '#ff9800' : type === 'temperature' ? '#2196f3' : '#4caf50',
-            backgroundColor: type === 'light' ? '#ff980033' : type === 'temperature' ? '#2196f333' : '#4caf5033',
-            fill: false,
-            tension: 0.3,
-            pointRadius: 3
-        }];
-        chart.update('none');
-    }
-
-    // -----------------------------
-    // Fetch history + update charts
-    // -----------------------------
-    async function loadHistory(device_uid) {
-        try {
-            const res = await fetch(`/api/history/${device_uid}?hours=2`);
-            const data = await res.json();
-            if (!Array.isArray(data) || data.length === 0) return;
-
-            const timestamps = [...new Set(data.map(r => r.timestamp))].slice(-30).sort();
-            const times = timestamps.map(t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
-
-            const tempReadings = data.filter(r => r.sensor_type === 'temperature');
-            const moistureReadings = data.filter(r => r.sensor_type === 'moisture');
-            const lightReadings = data.filter(r => r.sensor_type === 'light');
-
-            updateSingleChart(tempChart, times, timestamps, tempReadings, 'temperature');
-            updateSingleChart(moistureChart, times, timestamps, moistureReadings, 'moisture');
-            updateSingleChart(lightChart, times, timestamps, lightReadings, 'light');
-        } catch (e) {
-            console.error("Failed to load history:", e);
-        }
-    }
-
-    // Initial load
-    loadDevices();
-});
-</script>
-
-
 </body>
 </html>
