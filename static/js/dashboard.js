@@ -228,16 +228,33 @@ document.addEventListener('DOMContentLoaded', function () {
     const lightChart    = makeChart('lightChart',    'lux');
 
     function setChartLoading(type, loading) {
-        document.getElementById(`${type}Loading`).classList.toggle('visible', loading);
+        const idMap = {'temperature': 'temp', 'moisture': 'moisture',  'light': 'light'};
+        const id = idMap[type] + 'Loading';
+        const el = document.getElementById(id);
+        if (!el) {
+            console.warn(`Loading element not found: ${id}`);
+            return;
+        }
+        el.classList.toggle('visible', loading);
     }
 
     function setChartNoData(type, noData) {
-        document.getElementById(`${type}NoData`).classList.toggle('visible', noData);
+        const idMap = {'temperature': 'temp', 'moisture': 'moisture', 'light': 'light'};
+        const id = idMap[type] + 'NoData';
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle('visible', noData);
     }
 
     function setChartMeta(type, count, fromTs, toTs) {
-        const el = document.getElementById(`${type}Meta`);
-        if (!count) { el.textContent = ''; return; }
+        const idMap = {'temperature': 'temp', 'moisture': 'moisture', 'light': 'light'};
+        const id = idMap[type] + 'Meta';
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (!count) { 
+            el.textContent = ''; 
+            return; 
+        }
         const fmtOpts = { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' };
         el.textContent = `${count} readings · ${parseTs(fromTs).toLocaleString([], fmtOpts)} – ${parseTs(toTs).toLocaleString([], fmtOpts)}`;
     }
