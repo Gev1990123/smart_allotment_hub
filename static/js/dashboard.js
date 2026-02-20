@@ -174,56 +174,58 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ─── Charts ───────────────────────────────────────────
-    const chartDefaults = {
-        type: 'line',
-        data: { labels: [], datasets: [] },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: { mode: 'index', intersect: false },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        title: items => {
-                            const ts = items[0]?.label;
-                            return ts ? parseTs(ts).toLocaleString([], {
-                                month:'short', day:'numeric',
-                                hour:'2-digit', minute:'2-digit'
-                            }) : '';
+    // ─── Build a fresh chart config per chart ────────────
+    // NOTE: Do NOT use JSON.parse/JSON.stringify to clone configs —
+    // it silently drops all callback functions, breaking rendering.
+    function makeChart(canvasId, yLabel) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: items => {
+                                const ts = items[0]?.label;
+                                return ts ? parseTs(ts).toLocaleString([], {
+                                    month: 'short', day: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                }) : '';
+                            }
                         }
                     }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        maxTicksLimit: 8,
-                        maxRotation: 0,
-                        callback: function(val, idx) {
-                            const label = this.getLabelForValue(val);
-                            return label ? parseTs(label).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
-                        }
-                    },
-                    grid: { color: '#f0f0f0' }
                 },
-                y: { grid: { color: '#f0f0f0' } }
+                scales: {
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 8,
+                            maxRotation: 0,
+                            callback: function(val) {
+                                const label = this.getLabelForValue(val);
+                                return label ? parseTs(label).toLocaleTimeString([], {
+                                    hour: '2-digit', minute: '2-digit'
+                                }) : '';
+                            }
+                        },
+                        grid: { color: '#f0f0f0' }
+                    },
+                    y: {
+                        title: { display: true, text: yLabel },
+                        grid:  { color: '#f0f0f0' }
+                    }
+                }
             }
-        }
-    };
-
-    function makeChart(canvasId, yMin, yMax, yLabel, color) {
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        const cfg = JSON.parse(JSON.stringify(chartDefaults));
-        cfg.options.scales.y.min   = yMin;
-        cfg.options.scales.y.max   = yMax;
-        cfg.options.scales.y.title = { display: true, text: yLabel };
-        return new Chart(ctx, cfg);
+        });
     }
 
-    const tempChart     = makeChart('tempChart',     10, 30,    '°C', '#2196f3');
-    const moistureChart = makeChart('moistureChart', 0,  110,   '%',  '#4caf50');
-    const lightChart    = makeChart('lightChart',    0,  10000, 'lux','#ff9800');
+    const tempChart     = makeChart('tempChart',     '°C');
+    const moistureChart = makeChart('moistureChart', '%');
+    const lightChart    = makeChart('lightChart',    'lux');
 
     function setChartLoading(type, loading) {
         document.getElementById(`${type}Loading`).classList.toggle('visible', loading);
@@ -306,6 +308,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = await res.json();
 
             if (!Array.isArray(data)) throw new Error('Unexpected response');
+
+            // DEBUG — remove once working
+            console.log('History rows:', data.length);
+            if (data.length > 0) {
+                console.log('First row:', JSON.stringify(data[0]));
+                const types = [...new Set(data.map(r => r.sensor_type))];
+                console.log('Unique sensor_type values:', types);
+            }
 
             updateChart(tempChart,     'temperature', data, '#2196f3');
             updateChart(moistureChart, 'moisture',    data, '#4caf50');
