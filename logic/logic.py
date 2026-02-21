@@ -12,7 +12,7 @@ from utils.logging import setup_logger
 # -------------------------
 MOISTURE_THRESHOLD = float(40)
 PUMP_RUN_SECONDS = float(5)
-RUN_INTERVAL = int(60)
+RUN_INTERVAL = int(3600)
 SKIP_INTERVAL = int(120)
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
