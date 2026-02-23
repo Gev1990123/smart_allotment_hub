@@ -104,6 +104,10 @@ class SensorInfo(BaseModel):
     notes: str | None
     created_at: str | None
 
+class PumpCommand(BaseModel):
+    action: str  # "on" or "off"
+    duration: int | None = None  # seconds
+
 # -------------------------
 # Authentication Dependency
 # -------------------------
@@ -1255,6 +1259,38 @@ async def trigger_manual_reading(device_uid: str, current_user: Dict = Depends(g
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ---------------------------------------------------------
+# MANUAL PUMP-NOW
+# ---------------------------------------------------------
+
+@app.post("/api/devices/{device_uid}/pump")
+async def trigger_pump(device_uid: str, command: PumpCommand, current_user: Dict = Depends(get_auth_user_or_token)):
+    """Trigger pump on/off - admin only"""
+    if current_user.get("role") != "sys_admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    if not auth.user_can_access_device(current_user["user_id"], device_uid):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if command.action not in ("on", "off", "run"):
+        raise HTTPException(status_code=400, detail="Action must be 'on', 'off', or 'run'")
+
+    if command.action == "run" and not command.seconds:
+        raise HTTPException(status_code=400, detail="'run' action requires 'seconds'")
+
+    try:
+        mqtt_publisher.publish_command(
+            device_uid=device_uid,
+            command="pump",
+            extra={
+                "action": command.action,
+                "seconds": command.seconds,
+                "requested_by": current_user["username"]
+            }
+        )
+        return {"message": f"Pump '{command.action}' command sent to {device_uid}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------------------------------------
 # UI ROUTES (HTML Templates)

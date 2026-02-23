@@ -219,6 +219,21 @@ function renderDevices(devices) {
         const readNowBtn = IS_ADMIN
             ? `<button class="btn-secondary" id="readnow-${device.uid}" onclick="triggerReadNow('${device.uid}')">⚡ Read Now</button>`
             : '';
+
+        // Pump Control button — only rendered for admins
+        const pumpBtn = IS_ADMIN ? `
+            <div class="pump-control" id="pump-${device.uid}">
+                <button class="btn-pump" onclick="triggerPump('${device.uid}', 'run')">
+                    💧 Water
+                </button>
+                <select id="pump-duration-${device.uid}" style="width: 80px; padding: 8px 6px; font-size: 13px;">
+                    <option value="5">5s</option>
+                    <option value="10">10s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                    <option value="120">120s</option>
+                </select>
+            </div>` : '';
         
         return `
             <div class="page-card ${device.isOnline ? '' : 'offline'}">
@@ -259,6 +274,7 @@ function renderDevices(devices) {
                     <button onclick="viewDevice('${device.uid}')">View Dashboard</button>
                     <button class="btn-secondary" onclick="viewHistory('${device.uid}')">History</button>
                     ${readNowBtn}
+                    ${pumpBtn}
                 </div>
             </div>
         `;
@@ -266,7 +282,56 @@ function renderDevices(devices) {
 }
 
 // ============================================
-// READ NOW
+// TRIGGER PUMP FUNCTION (ADMIN ONLY)
+// ============================================
+
+async function triggerPump(deviceUid, action) {
+    const btn = document.querySelector(`#pump-${deviceUid} .btn-pump`);
+    const durationSelect = document.getElementById(`pump-duration-${deviceUid}`);
+    const seconds = durationSelect ? parseInt(durationSelect.value) : 10;
+    const originalText = btn.textContent;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending...';
+
+    try {
+        const res = await fetch(`/api/devices/${deviceUid}/pump`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, seconds })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            btn.textContent = `✅ Running ${seconds}s`;
+            btn.style.background = '#2e7d32';
+            // Auto-reset after duration + 1s buffer
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, (seconds + 1) * 1000);
+        } else {
+            btn.textContent = '❌ Failed';
+            btn.style.background = '#e53935';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, 3000);
+        }
+    } catch (e) {
+        btn.textContent = '❌ Error';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.style.background = '';
+        }, 3000);
+    }
+}
+
+// ============================================
+// READ NOW (ADMIN ONLY)
 // ============================================
 async function triggerReadNow(deviceUid) {
     const btn = document.getElementById(`readnow-${deviceUid}`);
