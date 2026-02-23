@@ -11,6 +11,8 @@ import mqtt_publisher
 
 app = FastAPI(title="Smart Allotment API")
 
+# Allow all origins for now — tighten this down in production
+# to only allow the frontend's actual domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static + templates (absolute paths inside the container)
+# Serve static files (CSS, JS) and HTML templates from fixed container paths
 app.mount("/static", StaticFiles(directory="/api/static"), name="static")
 templates = Jinja2Templates(directory="/api/templates")
 
@@ -29,6 +31,8 @@ templates = Jinja2Templates(directory="/api/templates")
 
 @app.on_event("startup")
 async def startup():
+    # Connect the persistent MQTT publisher once when the API boots,
+    # so all endpoints can publish without creating a new connection each time
     mqtt_publisher.connect()
 
 # -------------------------
@@ -69,14 +73,14 @@ class UserUpdate(BaseModel):
     email: str
     full_name: str | None = None
     role: str = "user"
-    password: str | None = None 
+    password: str | None = None # Optional — only update if provided
 
 class ApiTokenCreate(BaseModel):
     name: str
     description: str | None = None
     scopes: list[str] = []
     expires_days: int | None = None
-    device_uid: str | None = None  # For device tokens
+    device_uid: str | None = None  # If set, creates a device token instead of a user token
 
 class SensorDataSubmit(BaseModel):
     sensor_name: str
@@ -106,14 +110,17 @@ class SensorInfo(BaseModel):
 
 class PumpCommand(BaseModel):
     action: str  # "on" or "off"
-    seconds: int | None = None   # seconds
+    seconds: int | None = None    # Required when action == "run"
 
 # -------------------------
 # Authentication Dependency
 # -------------------------
 
 async def get_current_user(session_token: Optional[str] = Cookie(None)) -> Dict[str, Any]:
-    """Dependency to get current authenticated user"""
+    """
+    FastAPI dependency — extracts and validates the session cookie.
+    Raises 401 if the cookie is missing or the session has expired.
+    """
     if not session_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -131,13 +138,19 @@ async def get_current_user(session_token: Optional[str] = Cookie(None)) -> Dict[
 
 
 async def get_optional_user(session_token: Optional[str] = Cookie(None)) -> Optional[Dict[str, Any]]:
-    """Dependency to optionally get current user (for pages that work with or without auth)"""
+    """
+    FastAPI dependency — like get_current_user but returns None instead of
+    raising an exception. Used on pages that redirect to /login if unauthenticated.
+    """
     if not session_token:
         return None
     return auth.validate_session(session_token)
 
 async def require_sys_admin(current_user: Dict = Depends(get_current_user)) -> Dict[str, Any]:
-    """Dependency to require sys_admin role"""
+    """
+    FastAPI dependency — requires the logged-in user to have the sys_admin role.
+    Raises 403 otherwise.
+    """
     if current_user.get("role") != "sys_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -146,7 +159,10 @@ async def require_sys_admin(current_user: Dict = Depends(get_current_user)) -> D
     return current_user
 
 async def get_api_token_auth(authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
-    """Dependency to authenticate via API token (from Authorization header)"""
+    """
+    FastAPI dependency — authenticates via Bearer token in the Authorization header.
+    Used by IoT devices and external API callers.
+    """
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -154,7 +170,7 @@ async def get_api_token_auth(authorization: Optional[str] = Header(None)) -> Dic
             headers={"WWW-Authenticate": "Bearer"}
         )
     
-    # Expected format: "Bearer {token}" or just "{token}"
+    # Strip the "Bearer " prefix if present
     token = authorization
     if authorization.startswith("Bearer "):
         token = authorization[7:]
@@ -174,17 +190,19 @@ async def get_auth_user_or_token(
     authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
     """
-    Dependency to accept either session cookie OR API token
-    Tries session first, then API token
+    FastAPI dependency — accepts either a session cookie OR a Bearer API token.
+    Session cookie is checked first; API token is the fallback.
+    Used on endpoints that should be accessible from both the browser UI
+    and external API callers (e.g. the node's HTTP calls).
     """
-    # Try session cookie first
+    # Try session cookie first (browser users)
     if session_token:
         user = auth.validate_session(session_token)
         if user:
             user["auth_type"] = "session"
             return user
     
-    # Try API token
+    # Fall back to API token (devices / external callers)
     if authorization:
         token = authorization
         if authorization.startswith("Bearer "):
@@ -206,7 +224,7 @@ async def get_auth_user_or_token(
 
 @app.post("/api/auth/login")
 async def login(request: Request, login_data: LoginRequest):
-    """Login endpoint"""
+    """Validate credentials and issue a session cookie"""
     user = auth.authenticate_user(login_data.username, login_data.password)
     
     if not user:
@@ -215,7 +233,7 @@ async def login(request: Request, login_data: LoginRequest):
             detail="Invalid username or password"
         )
     
-    # Get client info
+    # Capture client metadata for the session record
     client_ip = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent", None)
     
@@ -231,7 +249,7 @@ async def login(request: Request, login_data: LoginRequest):
         }
     })
     
-    # Set session cookie (httponly for security)
+    # httponly prevents JS from reading the cookie (XSS protection)
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -244,7 +262,7 @@ async def login(request: Request, login_data: LoginRequest):
 
 @app.post("/api/auth/logout")
 async def logout(session_token: Optional[str] = Cookie(None)):
-    """Logout endpoint"""
+    """Delete the server-side session and clear the cookie"""
     if session_token:
         auth.delete_session(session_token)
     
@@ -255,7 +273,7 @@ async def logout(session_token: Optional[str] = Cookie(None)):
 
 @app.get("/api/auth/me")
 async def get_current_user_info(current_user: Dict = Depends(get_current_user)):
-    """Get current user information"""
+    """Return basic info about the currently logged-in user"""
     return {
         "username": current_user["username"],
         "email": current_user["email"],
@@ -270,11 +288,11 @@ async def get_current_user_info(current_user: Dict = Depends(get_current_user)):
 
 @app.post("/api/users/create")
 async def create_user(user_data: UserCreate, admin: Dict = Depends(require_sys_admin)):
-    """Create a new user (admin only)"""
+    """Create a new user — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     
-    # Check if username or email already exists
+    # Prevent duplicate usernames or email addresses
     cur.execute("""
         SELECT username FROM users WHERE username = %s OR email = %s;
     """, (user_data.username, user_data.email))
@@ -310,11 +328,12 @@ async def create_user(user_data: UserCreate, admin: Dict = Depends(require_sys_a
 
 @app.post("/api/users/{user_id}/assign-site/{site_id}")
 async def assign_user_to_site(user_id: int, site_id: int, admin: Dict = Depends(require_sys_admin)):
-    """Assign a user to a site (admin only)"""
+    """Grant a user access to a site — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     
     try:
+        # ON CONFLICT DO NOTHING = idempotent; assigning twice won't error
         cur.execute("""
             INSERT INTO user_site_assignments (user_id, site_id)
             VALUES (%s, %s)
@@ -332,7 +351,7 @@ async def assign_user_to_site(user_id: int, site_id: int, admin: Dict = Depends(
 
 @app.delete("/api/users/{user_id}/unassign-site/{site_id}")
 async def unassign_user_from_site(user_id: int, site_id: int, admin: Dict = Depends(require_sys_admin)):
-    """Remove a user's access to a site (admin only)"""
+    """Revoke a user's access to a site — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -348,7 +367,7 @@ async def unassign_user_from_site(user_id: int, site_id: int, admin: Dict = Depe
 
 @app.get("/api/users/list")
 async def list_users(admin: Dict = Depends(require_sys_admin)):
-    """List all users (admin only)"""
+    """List all users — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -379,7 +398,7 @@ async def list_users(admin: Dict = Depends(require_sys_admin)):
 
 @app.put("/api/users/{user_id}")
 async def update_user(user_id: int, user_data: UserUpdate, admin: Dict = Depends(require_sys_admin)):
-    """Update a user's details (admin only)"""
+    """Update a user's details — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -389,7 +408,7 @@ async def update_user(user_id: int, user_data: UserUpdate, admin: Dict = Depends
             conn.close()
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Check email uniqueness (excluding this user)
+        # Ensure the new email isn't already taken by a different user
         cur.execute(
             "SELECT id FROM users WHERE email = %s AND id != %s;",
             (user_data.email, user_id)
@@ -399,6 +418,7 @@ async def update_user(user_id: int, user_data: UserUpdate, admin: Dict = Depends
             raise HTTPException(status_code=400, detail="Email already in use by another user")
 
         if user_data.password:
+            # Password change requested — re-hash and update together
             password_hash = auth.hash_password(user_data.password)
             cur.execute("""
                 UPDATE users
@@ -407,6 +427,7 @@ async def update_user(user_id: int, user_data: UserUpdate, admin: Dict = Depends
                 RETURNING id, username, email, full_name, role;
             """, (user_data.email, user_data.full_name, user_data.role, password_hash, user_id))
         else:
+            # No password change — leave password_hash untouched
             cur.execute("""
                 UPDATE users
                 SET email = %s, full_name = %s, role = %s
@@ -433,11 +454,11 @@ async def update_user(user_id: int, user_data: UserUpdate, admin: Dict = Depends
 
 @app.delete("/api/users/{user_id}")
 async def delete_user(user_id: int, admin: Dict = Depends(require_sys_admin)):
-    """Delete a user and their site assignments (admin only)"""
+    """Delete a user and all their site assignments — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     try:
-        # Prevent deleting yourself
+        # Safety check: prevent an admin from deleting their own account
         if user_id == admin["user_id"]:
             conn.close()
             raise HTTPException(status_code=400, detail="You cannot delete your own account")
@@ -450,7 +471,7 @@ async def delete_user(user_id: int, admin: Dict = Depends(require_sys_admin)):
 
         username = row[0]
 
-        # Remove site assignments first
+        # Clean up related records before deleting the user row
         cur.execute("DELETE FROM user_site_assignments WHERE user_id = %s;", (user_id,))
         # Remove sessions
         cur.execute("DELETE FROM sessions WHERE user_id = %s;", (user_id,))
@@ -469,7 +490,7 @@ async def delete_user(user_id: int, admin: Dict = Depends(require_sys_admin)):
 
 @app.get("/api/users/{user_id}/sites")
 async def get_user_sites(user_id: int, admin: Dict = Depends(require_sys_admin)):
-    """Get all sites assigned to a user (admin only)"""
+    """Get all sites assigned to a specific user — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
     try:
@@ -498,17 +519,21 @@ async def get_user_sites(user_id: int, admin: Dict = Depends(require_sys_admin))
 
 @app.post("/api/tokens/create")
 async def create_token(token_data: ApiTokenCreate, current_user: Dict = Depends(get_current_user)):
-    """Create a new API token (for current user or device)"""
+    """
+    Create a new API token.
+    - If device_uid is provided → device token (admin only)
+    - Otherwise → user token for the currently logged-in user
+    """
     
     user_id = None
     device_id = None
     
-    # If device_uid provided, this is a device token (admin only)
     if token_data.device_uid:
+        # Device tokens can only be created by admins
         if current_user.get("role") != "sys_admin":
             raise HTTPException(status_code=403, detail="Only admins can create device tokens")
         
-        # Get device ID from UID
+        # Resolve device UID to internal device ID
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("SELECT id FROM devices WHERE uid = %s;", (token_data.device_uid,))
@@ -519,7 +544,7 @@ async def create_token(token_data: ApiTokenCreate, current_user: Dict = Depends(
             raise HTTPException(status_code=404, detail="Device not found")
         device_id = row[0]
     else:
-        # User token
+        # User token — associate with the caller's own account
         user_id = current_user["user_id"]
     
     try:
@@ -535,7 +560,7 @@ async def create_token(token_data: ApiTokenCreate, current_user: Dict = Depends(
         
         return {
             "message": "Token created successfully",
-            "token": token["token"],  # Only shown once!
+            "token": token["token"],  # Shown only once — user must save it now
             "id": token["id"],
             "name": token["name"],
             "scopes": token["scopes"],
@@ -547,7 +572,7 @@ async def create_token(token_data: ApiTokenCreate, current_user: Dict = Depends(
 
 @app.get("/api/tokens/list")
 async def list_my_tokens(current_user: Dict = Depends(get_current_user)):
-    """List current user's API tokens"""
+    """List the current user's API tokens (metadata only — no token values)"""
     tokens = auth.list_user_tokens(current_user["user_id"])
     
     # Don't return actual token values, just metadata
@@ -556,7 +581,7 @@ async def list_my_tokens(current_user: Dict = Depends(get_current_user)):
 
 @app.delete("/api/tokens/{token_id}/revoke")
 async def revoke_token(token_id: int, current_user: Dict = Depends(get_current_user)):
-    """Revoke (deactivate) an API token"""
+    """Revoke (deactivate) a token — owner or sys_admin only"""
     
     # Verify token belongs to current user or user is admin
     conn = get_connection()
@@ -574,7 +599,7 @@ async def revoke_token(token_id: int, current_user: Dict = Depends(get_current_u
     
     token_value, token_user_id = row
     
-    # Check ownership or admin
+    # Only the token's owner or an admin can revoke it
     if token_user_id != current_user["user_id"] and current_user.get("role") != "sys_admin":
         raise HTTPException(status_code=403, detail="Not authorized to revoke this token")
     
@@ -590,9 +615,13 @@ async def submit_sensor_data(
     data: SensorDataSubmit,
     token_info: Dict = Depends(get_api_token_auth)
 ):
-    """Submit sensor data (API token only - typically from IoT devices)"""
+    """
+    Submit sensor data — device API token only.
+    The device is identified by the token itself (not the request body),
+    so a token can only ever write data for its own device.
+    """
     
-    # Verify this is a device token
+    # Reject user tokens — only physical devices should submit data this way
     if token_info["type"] != "device":
         raise HTTPException(status_code=403, detail="Device token required")
     
@@ -628,7 +657,7 @@ async def submit_sensor_data(
         
         data_id = cur.fetchone()[0]
         
-        # Update device last_seen
+        # Mark device as active and record the timestamp of this reading
         cur.execute("""
             UPDATE devices SET last_seen = NOW(), active = TRUE WHERE id = %s;
         """, (device_id,))
@@ -651,6 +680,7 @@ async def submit_sensor_data(
 # ---------------------------------------------------------
 @app.get("/api/health")
 def health():
+    """Simple liveness check — also verifies the DB connection is reachable"""
     try:
         conn = get_connection()
         conn.close()
@@ -664,7 +694,10 @@ def health():
 # ---------------------------------------------------------
 @app.get("/api/latest/{device_uid}")
 def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_token)):
-    """Get latest readings - requires authentication and device access"""
+    """
+    Return the most recent reading for each sensor type on a device.
+    DISTINCT ON (sensor_type) gives us one row per type, ordered by most recent.
+    """
 
     # Check if user can access this device
     if not auth.user_can_access_device(current_user["user_id"], device_uid):
@@ -718,8 +751,10 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_to
 # ---------------------------------------------------------
 @app.get("/api/history/{device_uid}")
 def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(get_auth_user_or_token)):
-    """Get device history - requires authentication and device access"""
-
+    """
+    Return all readings for a device within the last N hours (default 24).
+    Results are ordered oldest-first so charts render left-to-right chronologically.
+    """
     # Check if user can access this device
     if not auth.user_can_access_device(current_user["user_id"], device_uid):
         raise HTTPException(
@@ -770,8 +805,10 @@ def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(g
 # ---------------------------------------------------------
 @app.get("/api/devices")
 def list_devices(current_user: Dict = Depends(get_auth_user_or_token)):
-    """List devices - filtered by user's site access"""
-
+    """
+    List devices the current user can access.
+    sys_admin sees all; regular users only see devices on their assigned sites.
+    """
     conn = None
     try:
         conn = get_connection()
@@ -780,11 +817,11 @@ def list_devices(current_user: Dict = Depends(get_auth_user_or_token)):
         # Get user's allowed sites
         allowed_sites = auth.get_user_site_access(current_user["user_id"])
 
-        # sys_admin (empty allowed_sites) gets all devices
         if not allowed_sites:
+            # Empty list = sys_admin — fetch everything
             cur.execute("SELECT DISTINCT uid, name, site_id FROM devices WHERE uid IS NOT NULL ORDER BY uid;")
         else:
-            # Regular users only see devices from their assigned sites
+            # Build a dynamic IN clause for the user's allowed site IDs
             placeholders = ','.join(['%s'] * len(allowed_sites))
             cur.execute(f"""
                 SELECT DISTINCT uid, name, site_id 
@@ -814,6 +851,7 @@ def list_devices(current_user: Dict = Depends(get_auth_user_or_token)):
 # ---------------------------------------------------------
 @app.get("/api/sites")
 def list_sites():
+    """Return all registered sites (unfiltered — used for dropdowns etc.)"""
     conn = None
     try:
         conn = get_connection()
@@ -841,6 +879,7 @@ def list_sites():
 # ---------------------------------------------------------
 @app.get("/api/sensors")
 def list_sensors():
+    """Return all unique sensor IDs (legacy endpoint — used for dropdowns)"""
     conn = None
     try:
         conn = get_connection()
@@ -868,7 +907,7 @@ def list_sensors():
 # ----------------------------------
 @app.post("/api/device/register", response_model=DeviceInfo)
 def register_device(device: DeviceCreate, admin: Dict = Depends(require_sys_admin)):
-    """Register a new device - admin only"""
+    """Register a new device — sys_admin only. Device starts inactive until it sends data."""
     conn = get_connection()
     cur = conn.cursor()
 
@@ -902,6 +941,7 @@ def register_device(device: DeviceCreate, admin: Dict = Depends(require_sys_admi
 # --------------------------------
 @app.post("/api/site/register", response_model=SiteInfo)
 def register_site(site: SiteCreate, admin: Dict = Depends(require_sys_admin)):
+    """Register a new site — sys_admin only"""
     conn = get_connection()
     cur = conn.cursor()
 
@@ -933,7 +973,7 @@ def register_site(site: SiteCreate, admin: Dict = Depends(require_sys_admin)):
 
 @app.get("/api/sensors/list")
 async def list_sensors(current_user: Dict = Depends(get_current_user)):
-    """List all sensors (filtered by user's site access)"""
+    """List sensors — sys_admin sees all, regular users see only their sites' sensors"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -941,8 +981,8 @@ async def list_sensors(current_user: Dict = Depends(get_current_user)):
         # Get user's allowed sites
         allowed_sites = auth.get_user_site_access(current_user["user_id"])
         
-        # sys_admin gets all sensors
         if not allowed_sites:
+            # sys_admin — no site filter
             cur.execute("""
                 SELECT 
                     s.id, s.device_id, d.uid as device_uid, s.sensor_name, 
@@ -1000,7 +1040,7 @@ async def register_sensor(
     sensor_data: SensorRegister, 
     current_user: Dict = Depends(get_current_user)
 ):
-    """Register a new sensor (admin or device owner)"""
+    """Register a new sensor against a device the user has access to"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -1026,7 +1066,7 @@ async def register_sensor(
                 detail="You don't have access to this device"
             )
         
-        # Check if sensor already exists for this device
+        # Prevent duplicate sensor names on the same device
         cur.execute("""
             SELECT id FROM sensors 
             WHERE device_id = %s AND sensor_name = %s;
@@ -1039,7 +1079,7 @@ async def register_sensor(
                 detail=f"Sensor '{sensor_data.sensor_name}' already exists for this device"
             )
         
-        # Auto-determine unit if not provided
+        # Auto-assign a sensible unit if none was provided
         unit = sensor_data.unit
         if not unit:
             unit_map = {
@@ -1094,12 +1134,12 @@ async def register_sensor(
 
 @app.post("/api/sensors/{sensor_id}/activate")
 async def activate_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
-    """Activate a sensor"""
+    """Mark a sensor as active so it appears in dashboards"""
     conn = get_connection()
     cur = conn.cursor()
     
     try:
-        # Get sensor info
+        # Join to devices so we can check access via device_uid
         cur.execute("""
             SELECT s.id, d.uid as device_uid 
             FROM sensors s
@@ -1144,7 +1184,7 @@ async def activate_sensor(sensor_id: int, current_user: Dict = Depends(get_curre
 
 @app.post("/api/sensors/{sensor_id}/deactivate")
 async def deactivate_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
-    """Deactivate a sensor"""
+    """Mark a sensor as inactive (hides it from dashboards without deleting data)"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -1194,7 +1234,7 @@ async def deactivate_sensor(sensor_id: int, current_user: Dict = Depends(get_cur
 
 @app.delete("/api/sensors/{sensor_id}/delete")
 async def delete_sensor(sensor_id: int, current_user: Dict = Depends(get_current_user)):
-    """Delete a sensor (admin only or device owner)"""
+    """Permanently delete a sensor record — does NOT delete historical sensor_data rows"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -1246,7 +1286,10 @@ async def delete_sensor(sensor_id: int, current_user: Dict = Depends(get_current
 
 @app.post("/api/devices/{device_uid}/read-now")
 async def trigger_manual_reading(device_uid: str, current_user: Dict = Depends(get_auth_user_or_token)):
-    """Trigger an immediate sensor reading from a device via MQTT"""
+    """
+    Send an MQTT command to trigger an immediate sensor reading on the device.
+    The node publishes the result to sensors/{uid}/data which the listener picks up normally.
+    """
     if not auth.user_can_access_device(current_user["user_id"], device_uid):
         raise HTTPException(status_code=403, detail="Access denied")
     try:
@@ -1265,7 +1308,10 @@ async def trigger_manual_reading(device_uid: str, current_user: Dict = Depends(g
 
 @app.post("/api/devices/{device_uid}/pump")
 async def trigger_pump(device_uid: str, command: PumpCommand, current_user: Dict = Depends(get_auth_user_or_token)):
-    """Trigger pump on/off - admin only"""
+    """
+    Send an MQTT pump command to a device — sys_admin only.
+    Actions: 'on' (stay on), 'off' (turn off), 'run' (on for N seconds then auto-off).
+    """
     if current_user.get("role") != "sys_admin":
         raise HTTPException(status_code=403, detail="Admin access required")
 
@@ -1275,6 +1321,7 @@ async def trigger_pump(device_uid: str, command: PumpCommand, current_user: Dict
     if command.action not in ("on", "off", "run"):
         raise HTTPException(status_code=400, detail="Action must be 'on', 'off', or 'run'")
 
+    # 'run' needs a duration so the node knows when to stop
     if command.action == "run" and not command.seconds:
         raise HTTPException(status_code=400, detail="'run' action requires 'seconds'")
 

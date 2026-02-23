@@ -1,5 +1,6 @@
 """
-Authentication and Authorization utilities
+Authentication and Authorization utilities for Smart Allotment.
+Covers password hashing, session management, API tokens, and access control.
 """
 import secrets
 import bcrypt
@@ -12,13 +13,13 @@ from db import get_connection
 # ============================================
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt"""
+    """Hash a plaintext password using bcrypt (includes a random salt automatically)"""
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against its hash"""
+    """Check a plaintext password against a stored bcrypt hash"""
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 # ============================================
@@ -27,8 +28,9 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 def generate_api_token(prefix: str = "api") -> str:
     """
-    Generate a secure API token
-    Format: {prefix}_{random_hex}
+    Generate a cryptographically secure API token.
+    Format: {prefix}_{64-char hex string}
+    Example: dev_a3f9bc... or usr_12cd8e...
     """
     random_part = secrets.token_hex(32)  # 64 character hex string
     return f"{prefix}_{random_part}"
@@ -44,9 +46,9 @@ def create_api_token(
     created_by: Optional[int] = None
 ) -> Dict[str, Any]:
     """
-    Create a new API token
-    Either user_id or device_id must be provided
-    Returns dict with token details
+    Create and persist a new API token.
+    Either user_id OR device_id must be provided (not both, not neither).
+    Returns a dict including the raw token — this is the only time it's available in plaintext.
     """
     if not user_id and not device_id:
         raise ValueError("Either user_id or device_id must be provided")
@@ -56,6 +58,8 @@ def create_api_token(
     token = generate_api_token(prefix)
     
     scopes = scopes or []
+
+    # Calculate expiry if a lifespan was requested; None = never expires
     expires_at = None
     if expires_days:
         expires_at = datetime.now() + timedelta(days=expires_days)
@@ -75,7 +79,7 @@ def create_api_token(
     
     return {
         "id": row[0],
-        "token": row[1],
+        "token": row[1], # Raw token — only returned here, never stored in plaintext
         "name": row[2],
         "scopes": row[3],
         "expires_at": row[4],
@@ -85,16 +89,17 @@ def create_api_token(
 
 def validate_api_token(token: str) -> Optional[Dict[str, Any]]:
     """
-    Validate an API token
-    Returns token info with associated user/device if valid, None if invalid
+    Validate an API token from an Authorization header.
+    Cleans up expired tokens as a side effect.
+    Returns enriched token info (with user/device details) if valid, None if not.
     """
     conn = get_connection()
     cur = conn.cursor()
     
-    # Clean up expired tokens first
+    # Housekeeping: remove expired tokens before checking
     cur.execute("DELETE FROM api_tokens WHERE expires_at < NOW() AND expires_at IS NOT NULL;")
     
-    # Get token info
+    # Fetch the token along with its associated user or device info
     cur.execute("""
         SELECT 
             t.id, t.token, t.user_id, t.device_id, t.name, t.scopes, t.expires_at,
@@ -114,7 +119,7 @@ def validate_api_token(token: str) -> Optional[Dict[str, Any]]:
         conn.close()
         return None
     
-    # Update last_used timestamp
+    # Record when this token was last used (useful for auditing)
     cur.execute("""
         UPDATE api_tokens SET last_used = NOW() WHERE token = %s;
     """, (token,))
@@ -130,16 +135,16 @@ def validate_api_token(token: str) -> Optional[Dict[str, Any]]:
         "token_name": row[4],
         "scopes": row[5] or [],
         "expires_at": row[6],
-        "type": "user" if row[2] else "device"
+        "type": "user" if row[2] else "device" # Tells callers which kind of token this is
     }
     
-    # Add user info if user token
+    # Attach user details if this is a user token
     if row[2]:
         result["username"] = row[7]
         result["role"] = row[8]
         result["email"] = row[9]
     
-    # Add device info if device token
+    # Attach device details if this is a device token
     if row[3]:
         result["device_uid"] = row[10]
         result["device_site_id"] = row[11]
@@ -148,7 +153,10 @@ def validate_api_token(token: str) -> Optional[Dict[str, Any]]:
 
 
 def revoke_api_token(token: str) -> bool:
-    """Revoke (deactivate) an API token"""
+    """
+    Soft-delete a token by marking it inactive.
+    Returns True if a row was updated, False if the token wasn't found.
+    """
     conn = get_connection()
     cur = conn.cursor()
     
@@ -164,7 +172,7 @@ def revoke_api_token(token: str) -> bool:
 
 
 def list_user_tokens(user_id: int) -> list:
-    """List all tokens for a user"""
+    """Return all tokens belonging to a user, newest first. Token values are not included."""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -192,7 +200,7 @@ def list_user_tokens(user_id: int) -> list:
 
 
 def list_device_tokens(device_id: int) -> list:
-    """List all tokens for a device"""
+    """Return all tokens associated with a device, newest first."""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -221,8 +229,13 @@ def list_device_tokens(device_id: int) -> list:
 
 def check_token_scope(token_info: Dict[str, Any], required_scope: str) -> bool:
     """
-    Check if a token has a required scope
-    Scopes format: 'read:sensors', 'write:sensor_data', 'admin:*'
+    Check whether a token has permission for a given scope.
+
+    Scope format examples: 'read:sensors', 'write:sensor_data', 'admin:*'
+    Matching rules (in order):
+      1. 'admin:*'        → grants everything
+      2. Exact match      → e.g. 'write:sensor_data' matches 'write:sensor_data'
+      3. Wildcard prefix  → e.g. 'read:*' matches 'read:sensors'
     """
     scopes = token_info.get("scopes", [])
     
@@ -234,7 +247,7 @@ def check_token_scope(token_info: Dict[str, Any], required_scope: str) -> bool:
     if required_scope in scopes:
         return True
     
-    # Wildcard match (e.g., 'read:*' matches 'read:sensors')
+    # Check if a wildcard like 'read:*' covers the required scope
     scope_parts = required_scope.split(":")
     if len(scope_parts) == 2:
         wildcard = f"{scope_parts[0]}:*"
@@ -249,8 +262,9 @@ def check_token_scope(token_info: Dict[str, Any], required_scope: str) -> bool:
 
 def create_session(user_id: int, ip_address: str = None, user_agent: str = None) -> str:
     """
-    Create a new session for a user
-    Returns the session token
+    Create a new browser session for a user after successful login.
+    Sessions expire after 24 hours.
+    Returns the session token (stored as an httponly cookie on the client).
     """
     session_token = secrets.token_urlsafe(32)
     expires_at = datetime.now() + timedelta(hours=24)  # 24 hour sessions
@@ -273,16 +287,17 @@ def create_session(user_id: int, ip_address: str = None, user_agent: str = None)
 
 def validate_session(session_token: str) -> Optional[Dict[str, Any]]:
     """
-    Validate a session token
-    Returns user info if valid, None if invalid/expired
+    Validate a session cookie token.
+    Cleans up expired sessions as a side effect.
+    Returns user info dict if valid, None if expired or not found.
     """
     conn = get_connection()
     cur = conn.cursor()
     
-    # Clean up expired sessions first
+    # Housekeeping: purge expired sessions before checking
     cur.execute("DELETE FROM sessions WHERE expires_at < NOW();")
     
-    # Get session and user info
+    # Join to users so we get role/email etc. in a single query
     cur.execute("""
         SELECT 
             u.id, u.username, u.email, u.full_name, u.role, u.active,
@@ -310,7 +325,7 @@ def validate_session(session_token: str) -> Optional[Dict[str, Any]]:
 
 
 def delete_session(session_token: str):
-    """Delete a session (logout)"""
+    """Remove a session from the DB (called on logout)"""
     conn = get_connection()
     cur = conn.cursor()
     
@@ -326,12 +341,14 @@ def delete_session(session_token: str):
 
 def authenticate_user(username: str, password: str) -> Optional[Dict[str, Any]]:
     """
-    Authenticate a user by username and password
-    Returns user info if successful, None if failed
+    Verify a username/password pair.
+    Returns user info on success, None on failure (wrong credentials or inactive account).
+    Also updates last_login timestamp on success.
     """
     conn = get_connection()
     cur = conn.cursor()
     
+    # Only fetch active users — deactivated accounts are treated as non-existent
     cur.execute("""
         SELECT id, username, email, password_hash, full_name, role, active
         FROM users
@@ -346,12 +363,12 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, Any]]:
     
     user_id, username, email, password_hash, full_name, role, active = row
     
-    # Verify password
+    # bcrypt comparison — timing-safe
     if not verify_password(password, password_hash):
         conn.close()
         return None
     
-    # Update last login
+    # Track when the user last logged in
     cur.execute("""
         UPDATE users SET last_login = NOW() WHERE id = %s;
     """, (user_id,))
@@ -374,8 +391,8 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, Any]]:
 
 def get_user_site_access(user_id: int) -> list[int]:
     """
-    Get list of site IDs a user has access to
-    Returns empty list for sys_admin (they have access to all)
+    Return the list of site IDs a user is allowed to access.
+    For sys_admin users, returns an empty list — callers treat empty as "all sites".
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -392,9 +409,9 @@ def get_user_site_access(user_id: int) -> list[int]:
     
     if role == 'sys_admin':
         conn.close()
-        return []  # Empty list means "all sites"
+        return []  # Convention: empty = unrestricted (sys_admin sees everything)
     
-    # Get assigned sites for regular users
+    # For regular users, return only their explicitly assigned sites
     cur.execute("""
         SELECT site_id FROM user_site_assignments WHERE user_id = %s;
     """, (user_id,))
@@ -406,10 +423,10 @@ def get_user_site_access(user_id: int) -> list[int]:
 
 
 def user_can_access_site(user_id: int, site_id: int) -> bool:
-    """Check if a user can access a specific site"""
+    """Return True if the user has access to the given site"""
     allowed_sites = get_user_site_access(user_id)
     
-    # Empty list means sys_admin (access to all)
+    # Empty list = sys_admin = access to all sites
     if not allowed_sites:
         return True
     
@@ -417,11 +434,15 @@ def user_can_access_site(user_id: int, site_id: int) -> bool:
 
 
 def user_can_access_device(user_id: int, device_uid: str) -> bool:
-    """Check if a user can access a specific device"""
+    """
+    Return True if the user has access to the given device.
+    Access is determined by whether the user has access to the site the device belongs to.
+    Devices with no site assigned are only accessible by sys_admin.
+    """
     conn = get_connection()
     cur = conn.cursor()
     
-    # Get user's role and device's site_id
+    # Fetch role and device site_id in a single CROSS JOIN query
     cur.execute("""
         SELECT u.role, d.site_id
         FROM users u
@@ -442,12 +463,12 @@ def user_can_access_device(user_id: int, device_uid: str) -> bool:
         conn.close()
         return True
     
-    # Device not assigned to a site - deny access for regular users
+    # Unassigned devices are off-limits to regular users
     if device_site_id is None:
         conn.close()
         return False
     
-    # Check if user has access to this site
+    # Check the user_site_assignments table
     cur.execute("""
         SELECT 1 FROM user_site_assignments
         WHERE user_id = %s AND site_id = %s;
@@ -459,10 +480,14 @@ def user_can_access_device(user_id: int, device_uid: str) -> bool:
     return has_access
 
 def token_can_access_device(token_info: Dict[str, Any], device_uid: str) -> bool:
-    """Check if an API token can access a specific device"""
-    
-    # Device tokens can only access their own device
+    """
+    Check device access for an API token.
+    - Device tokens: can only access their own device
+    - User tokens: follow the same rules as user_can_access_device
+    """
+
     if token_info["type"] == "device":
+        # A device token is scoped to exactly one device
         return token_info.get("device_uid") == device_uid
     
     # User tokens follow user permissions
@@ -474,8 +499,8 @@ def token_can_access_device(token_info: Dict[str, Any], device_uid: str) -> bool
 
 def filter_devices_by_access(user_id: int, devices: list) -> list:
     """
-    Filter a list of devices based on user access
-    Returns all devices for sys_admin, filtered list for regular users
+    Filter a list of device dicts to only those the user can access.
+    sys_admin receives the full unfiltered list.
     """
     conn = get_connection()
     cur = conn.cursor()
@@ -494,7 +519,7 @@ def filter_devices_by_access(user_id: int, devices: list) -> list:
         conn.close()
         return devices  # Return all devices
     
-    # Get user's allowed sites
+    # Get the user's allowed site IDs
     cur.execute("""
         SELECT site_id FROM user_site_assignments WHERE user_id = %s;
     """, (user_id,))
@@ -502,5 +527,5 @@ def filter_devices_by_access(user_id: int, devices: list) -> list:
     allowed_sites = [row[0] for row in cur.fetchall()]
     conn.close()
     
-    # Filter devices by site_id
+    # Keep only devices whose site_id is in the allowed list
     return [d for d in devices if d.get('site_id') in allowed_sites]
