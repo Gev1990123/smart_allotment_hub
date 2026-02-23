@@ -21,7 +21,13 @@ def connect():
     logger.info(f"MQTT publisher connected to {MQTT_HOST}:{MQTT_PORT}")
 
 def publish_command(device_uid: str, command: str, extra: dict = {}):
-    topic = f"cmd/{device_uid}/{command}"
+    """Publish a command to a device via MQTT."""
+    # Pump uses its own legacy topic format
+    if command == "pump":
+        topic = f"pump/{device_uid}"
+    else:
+        topic = f"cmd/{device_uid}/{command}"
+
     payload = json.dumps({"command": command, **extra})
     _client.publish(topic, payload, qos=1)
     logger.info(f"Published {topic}: {payload}")
