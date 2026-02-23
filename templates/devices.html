@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Devices - Smart Allotment</title>
-
-    <!-- CSS -->
     <link rel="stylesheet" href="/static/css/styles.css">
-    
-    <!-- Shared Scripts -->
     <script src="/static/js/scripts.js"></script>
 </head>
 
@@ -17,7 +13,6 @@
     <h1>🌱 Smart Allotment - Devices</h1>
 </header>
 
-<!-- NAVIGATION -->
 <nav>
     <div class="nav-links">
         <a href="/">📊 Dashboard</a>
@@ -41,7 +36,6 @@
 
 <main>
 
-    <!-- Page Header -->
     <div class="page-selector">
         <div style="flex: 1;">
             <h2 style="margin: 0; font-size: 20px;">📡 Device Management</h2>
@@ -53,17 +47,12 @@
         <button onclick="window.location.href='/'">← Back to Dashboard</button>
     </div>
 
-    <!-- Devices Grid -->
-    <div id="devicesContainer" class="page-grid">
-        <!-- Devices will be loaded here -->
-    </div>
+    <div id="devicesContainer" class="page-grid"></div>
 
-    <!-- Loading State -->
     <div id="loadingState" class="latest-box" style="text-align: center;">
         <p>Loading devices...</p>
     </div>
 
-    <!-- Empty State -->
     <div id="emptyState" class="latest-box" style="text-align: center; display: none;">
         <h3>No Devices Found</h3>
         <p>No devices have been registered yet.</p>
@@ -86,25 +75,21 @@
                                title="Only letters, numbers, hyphens, and underscores allowed">
                         <small>Unique identifier for the device (required)</small>
                     </div>
-                    
                     <div class="form-group">
-                        <label for="deviceName">Device Name<span style="color: #e53935;">*</span></label>
+                        <label for="deviceName">Device Name <span style="color: #e53935;">*</span></label>
                         <input type="text" id="deviceName" name="name" required
                                placeholder="e.g., Garden Bed 1">
                         <small>Friendly name for the device (required)</small>
                     </div>
-                    
                     <div class="form-group">
-                        <label for="siteId">Site ID<span style="color: #e53935;">*</span></label>
+                        <label for="siteId">Site <span style="color: #e53935;">*</span></label>
                         <select id="siteId" name="site_id" required>
                             <option value="">Loading sites...</option>
                         </select>
-                        <small>Associated site/location ID (required)</small>
+                        <small>Associated site/location (required)</small>
                     </div>
-                    
                     <div id="formError" class="form-error" style="display: none;"></div>
                     <div id="formSuccess" class="form-success" style="display: none;"></div>
-                    
                     <div class="modal-actions">
                         <button type="button" class="btn-secondary" onclick="closeAddDeviceModal()">Cancel</button>
                         <button type="submit" id="submitBtn">Add Device</button>
@@ -117,18 +102,10 @@
 </main>
 
 <script>
-// ============================================
-// DEVICES PAGE SPECIFIC JAVASCRIPT
-// ============================================
-
-// Pass the current user role from Jinja2 into JS
 const IS_ADMIN = "{{ user.role }}" === "sys_admin";
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Load devices
     loadDevices();
-    
-    // Auto-refresh every 30 seconds
     setInterval(loadDevices, 30000);
 });
 
@@ -152,32 +129,21 @@ async function loadDevices() {
         emptyState.style.display = 'none';
         container.style.display = 'grid';
         
-        // Fetch latest data for each device to determine status
         const devicesWithStatus = await Promise.all(
             data.devices.map(async (device) => {
                 try {
                     const latestRes = await fetch(`/api/latest/${device.uid}`);
                     const latestData = await latestRes.json();
-                    
-                    // Determine if device is online based on latest data
                     const isOnline = Array.isArray(latestData) && latestData.length > 0;
-                    const lastSeen = isOnline ? latestData[0].timestamp : null;
-                    
                     return {
                         ...device,
                         isOnline,
-                        lastSeen,
+                        lastSeen: isOnline ? latestData[0].timestamp : null,
                         sensorCount: isOnline ? latestData.length : 0,
-                        latestData: latestData
+                        latestData
                     };
                 } catch (e) {
-                    return {
-                        ...device,
-                        isOnline: false,
-                        lastSeen: null,
-                        sensorCount: 0,
-                        latestData: []
-                    };
+                    return { ...device, isOnline: false, lastSeen: null, sensorCount: 0, latestData: [] };
                 }
             })
         );
@@ -196,37 +162,27 @@ function renderDevices(devices) {
     container.innerHTML = devices.map(device => {
         const statusClass = device.isOnline ? 'online' : 'offline';
         const statusText = device.isOnline ? 'Online' : 'Offline';
-        
-        // Using shared utility function
         const lastSeenText = device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'Never';
         
-        // Get sensor readings
-        let tempValue = '--';
-        let moistureValue = '--';
-        let lightValue = '--';
+        let tempValue = '--', moistureValue = '--', lightValue = '--';
         
         if (device.latestData && Array.isArray(device.latestData)) {
-            const temp = device.latestData.find(s => s.sensor_type === 'temperature');
+            const temp     = device.latestData.find(s => s.sensor_type === 'temperature');
             const moisture = device.latestData.find(s => s.sensor_type === 'moisture');
-            const light = device.latestData.find(s => s.sensor_type === 'light');
-            
-            if (temp) tempValue = temp.sensor_value.toFixed(1);
+            const light    = device.latestData.find(s => s.sensor_type === 'light');
+            if (temp)     tempValue     = temp.sensor_value.toFixed(1);
             if (moisture) moistureValue = moisture.sensor_value.toFixed(1);
-            if (light) lightValue = Math.round(light.sensor_value);
+            if (light)    lightValue    = Math.round(light.sensor_value);
         }
 
-        // Read Now button — only rendered for admins
         const readNowBtn = IS_ADMIN
             ? `<button class="btn-secondary" id="readnow-${device.uid}" onclick="triggerReadNow('${device.uid}')">⚡ Read Now</button>`
             : '';
 
-        // Pump Control button — only rendered for admins
         const pumpBtn = IS_ADMIN ? `
             <div class="pump-control" id="pump-${device.uid}">
-                <button class="btn-pump" onclick="triggerPump('${device.uid}', 'run')">
-                    💧 Water
-                </button>
-                <select id="pump-duration-${device.uid}" style="width: 80px; padding: 8px 6px; font-size: 13px;">
+                <button class="btn-pump" onclick="triggerPump('${device.uid}')">💧 Water</button>
+                <select class="pump-duration" id="pump-duration-${device.uid}">
                     <option value="5">5s</option>
                     <option value="10">10s</option>
                     <option value="30">30s</option>
@@ -263,12 +219,8 @@ function renderDevices(devices) {
                     </div>
                 </div>
                 
-                <div class="device-info">
-                    <strong>Last Seen:</strong> ${lastSeenText}
-                </div>
-                <div class="device-info">
-                    <strong>Active Sensors:</strong> ${device.sensorCount}
-                </div>
+                <div class="device-info"><strong>Last Seen:</strong> ${lastSeenText}</div>
+                <div class="device-info"><strong>Active Sensors:</strong> ${device.sensorCount}</div>
                 
                 <div class="device-actions">
                     <button onclick="viewDevice('${device.uid}')">View Dashboard</button>
@@ -282,56 +234,7 @@ function renderDevices(devices) {
 }
 
 // ============================================
-// TRIGGER PUMP FUNCTION (ADMIN ONLY)
-// ============================================
-
-async function triggerPump(deviceUid, action) {
-    const btn = document.querySelector(`#pump-${deviceUid} .btn-pump`);
-    const durationSelect = document.getElementById(`pump-duration-${deviceUid}`);
-    const seconds = durationSelect ? parseInt(durationSelect.value) : 10;
-    const originalText = btn.textContent;
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Sending...';
-
-    try {
-        const res = await fetch(`/api/devices/${deviceUid}/pump`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, seconds })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            btn.textContent = `✅ Running ${seconds}s`;
-            btn.style.background = '#2e7d32';
-            // Auto-reset after duration + 1s buffer
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.textContent = originalText;
-                btn.style.background = '';
-            }, (seconds + 1) * 1000);
-        } else {
-            btn.textContent = '❌ Failed';
-            btn.style.background = '#e53935';
-            setTimeout(() => {
-                btn.disabled = false;
-                btn.textContent = originalText;
-                btn.style.background = '';
-            }, 3000);
-        }
-    } catch (e) {
-        btn.textContent = '❌ Error';
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            btn.style.background = '';
-        }, 3000);
-    }
-}
-
-// ============================================
-// READ NOW (ADMIN ONLY)
+// READ NOW
 // ============================================
 async function triggerReadNow(deviceUid) {
     const btn = document.getElementById(`readnow-${deviceUid}`);
@@ -347,35 +250,78 @@ async function triggerReadNow(deviceUid) {
         if (res.ok) {
             btn.textContent = '✅ Sent!';
             btn.style.background = '#2e7d32';
-            btn.style.color = 'white';
-            // Refresh readings after a short delay to allow device to respond
-            setTimeout(() => {
-                loadDevices();
-            }, 5000);
+            setTimeout(() => loadDevices(), 5000);
         } else {
             btn.textContent = '❌ Failed';
             btn.style.background = '#e53935';
-            btn.style.color = 'white';
             console.error('Read now failed:', data.detail);
         }
     } catch (e) {
         btn.textContent = '❌ Error';
         btn.style.background = '#e53935';
-        btn.style.color = 'white';
         console.error('Read now error:', e);
     }
 
-    // Reset button after 3 seconds
     setTimeout(() => {
         btn.disabled = false;
         btn.textContent = originalText;
         btn.style.background = '';
-        btn.style.color = '';
     }, 3000);
 }
 
 // ============================================
-// ADD DEVICE MODAL FUNCTIONS
+// PUMP CONTROL
+// ============================================
+async function triggerPump(deviceUid) {
+    const btn = document.querySelector(`#pump-${deviceUid} .btn-pump`);
+    const durationSelect = document.getElementById(`pump-duration-${deviceUid}`);
+    const seconds = parseInt(durationSelect.value);
+    const originalText = btn.textContent;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending...';
+
+    try {
+        const res = await fetch(`/api/devices/${deviceUid}/pump`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'run', seconds })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            btn.textContent = `🚰 Running ${seconds}s`;
+            btn.style.background = '#1565c0';
+            // Re-enable after the pump run completes + 1s buffer
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, (seconds + 1) * 1000);
+        } else {
+            btn.textContent = '❌ Failed';
+            btn.style.background = '#e53935';
+            console.error('Pump failed:', data.detail);
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = originalText;
+                btn.style.background = '';
+            }, 3000);
+        }
+    } catch (e) {
+        btn.textContent = '❌ Error';
+        btn.style.background = '#e53935';
+        console.error('Pump error:', e);
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.style.background = '';
+        }, 3000);
+    }
+}
+
+// ============================================
+// ADD DEVICE MODAL
 // ============================================
 async function openAddDeviceModal() {
     document.getElementById('addDeviceModal').style.display = 'block';
@@ -383,47 +329,37 @@ async function openAddDeviceModal() {
     document.getElementById('formError').style.display = 'none';
     document.getElementById('formSuccess').style.display = 'none';
 
-    // Populate sites dropdown
     const siteSelect = document.getElementById('siteId');
-    siteSelect.innerHTML = '<option value="">Loading sites...</option>'; // Loading state
+    siteSelect.innerHTML = '<option value="">Loading sites...</option>';
     try {
         const response = await fetch('/api/sites');
         const apiData = await response.json();
-
         const sites = apiData?.sites || [];
-
-        siteSelect.innerHTML = '<option value="">Select a site (optional)</option>'; // Reset with placeholder
-        
+        siteSelect.innerHTML = '<option value="">Select a site</option>';
         if (Array.isArray(sites) && sites.length > 0) {
             sites.forEach(site => {
                 const option = document.createElement('option');
-                option.value = site.id;  // Use 'id' field from your API response
-                option.textContent = site.friendly_name || site.id;  // Use 'name' or fallback to id
+                option.value = site.id;
+                option.textContent = site.friendly_name || site.id;
                 siteSelect.appendChild(option);
             });
         } else {
             siteSelect.innerHTML = '<option value="">No sites available</option>';
         }
     } catch (error) {
-        console.error('Error fetching sites:', error);
         siteSelect.innerHTML = '<option value="">Sites unavailable</option>';
     }
-
 }
 
 function closeAddDeviceModal() {
     document.getElementById('addDeviceModal').style.display = 'none';
 }
 
-// Close modal when clicking outside of it
 window.onclick = function(event) {
     const modal = document.getElementById('addDeviceModal');
-    if (event.target === modal) {
-        closeAddDeviceModal();
-    }
+    if (event.target === modal) closeAddDeviceModal();
 }
 
-// Handle form submission
 document.getElementById('addDeviceForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
@@ -431,55 +367,35 @@ document.getElementById('addDeviceForm').addEventListener('submit', async functi
     const formSuccess = document.getElementById('formSuccess');
     const submitBtn = document.getElementById('submitBtn');
     
-    // Hide previous messages
     formError.style.display = 'none';
     formSuccess.style.display = 'none';
     
-    // Get form data
-    const uid = document.getElementById('deviceUid').value.trim();
-    const name = document.getElementById('deviceName').value.trim() || null;
+    const uid    = document.getElementById('deviceUid').value.trim();
+    const name   = document.getElementById('deviceName').value.trim() || null;
     const siteId = document.getElementById('siteId').value ? parseInt(document.getElementById('siteId').value) : null;
     
-    // Disable submit button
     submitBtn.disabled = true;
     submitBtn.textContent = 'Adding...';
     
     try {
         const response = await fetch('/api/device/register', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                uid: uid,
-                name: name,
-                site_id: siteId
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid, name, site_id: siteId })
         });
-        
         const data = await response.json();
         
         if (response.ok) {
-            // Success
             formSuccess.textContent = `Device "${uid}" added successfully!`;
             formSuccess.style.display = 'block';
-            
-            // Refresh devices list
-            setTimeout(() => {
-                closeAddDeviceModal();
-                loadDevices();
-            }, 1500);
-            
+            setTimeout(() => { closeAddDeviceModal(); loadDevices(); }, 1500);
         } else {
-            // Error from server
             formError.textContent = data.detail || 'Failed to add device';
             formError.style.display = 'block';
             submitBtn.disabled = false;
             submitBtn.textContent = 'Add Device';
         }
-        
     } catch (error) {
-        console.error('Error adding device:', error);
         formError.textContent = 'Network error. Please try again.';
         formError.style.display = 'block';
         submitBtn.disabled = false;

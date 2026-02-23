@@ -613,12 +613,58 @@ canvas {
     display: flex;
     gap: 10px;
     margin-top: 15px;
+    flex-wrap: wrap;
 }
 
 .device-actions button {
     flex: 1;
     padding: 10px;
     font-size: 13px;
+}
+
+/* ---------------------------------------------------------
+   PUMP CONTROL
+--------------------------------------------------------- */
+.pump-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+
+.pump-control .btn-pump {
+    flex: 1;
+    padding: 10px;
+    font-size: 13px;
+    background: #1565c0;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.pump-control .btn-pump:hover {
+    background: #0d47a1;
+}
+
+.pump-control .btn-pump:disabled {
+    background: #9e9e9e;
+    cursor: not-allowed;
+}
+
+.pump-control .pump-duration {
+    width: 68px;
+    min-width: unset;        /* override global select min-width */
+    flex: unset;             /* override global select flex: 1 */
+    padding: 8px 4px;
+    font-size: 13px;
+    border: 1px solid #aaa;
+    border-radius: 6px;
+    background: #fafafa;
+    color: #333;
+    cursor: pointer;
 }
 
 /* ---------------------------------------------------------
@@ -1272,11 +1318,11 @@ button:disabled {
         width: 100%;
     }
 
-        .login-card {
+    .login-card {
         padding: 30px 20px;
     }
 
-        .sensors-table thead {
+    .sensors-table thead {
         display: none;
     }
     
@@ -1310,5 +1356,14 @@ button:disabled {
         width: 45%;
         font-weight: 600;
         color: #666;
+    }
+
+    .pump-control {
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .pump-control .pump-duration {
+        width: 68px;
     }
 }
