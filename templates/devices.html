@@ -258,6 +258,7 @@ function renderDevices(devices) {
                 <div class="device-actions">
                     <button onclick="viewDevice('${device.uid}')">View Dashboard</button>
                     <button class="btn-secondary" onclick="viewHistory('${device.uid}')">History</button>
+                    ${readNowBtn}
                 </div>
             </div>
         `;
