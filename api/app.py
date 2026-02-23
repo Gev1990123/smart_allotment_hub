@@ -106,7 +106,7 @@ class SensorInfo(BaseModel):
 
 class PumpCommand(BaseModel):
     action: str  # "on" or "off"
-    duration: int | None = None  # seconds
+    seconds: int | None = None   # seconds
 
 # -------------------------
 # Authentication Dependency
