@@ -86,6 +86,12 @@ services:
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
+      #MQTT
+      MQTT_HOST: mqtt
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_USERNAME: ${MQTT_USERNAME:-mqtt_listener}  # Default to "mqtt_listener" if not set, but can be empty
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}  # Default to empty if not set
+      # POSTGRES
       PSQL_HOST: database
       PSQL_PORT: 5432
       PSQL_USER: ${POSTGRES_USER}
