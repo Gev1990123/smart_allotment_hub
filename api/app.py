@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from db import get_connection
 import auth
+import mqtt_publisher
 
 app = FastAPI(title="Smart Allotment API")
 
@@ -21,6 +22,14 @@ app.add_middleware(
 # Static + templates (absolute paths inside the container)
 app.mount("/static", StaticFiles(directory="/api/static"), name="static")
 templates = Jinja2Templates(directory="/api/templates")
+
+# -------------------------
+# Startup
+# -------------------------
+
+@app.on_event("startup")
+async def startup():
+    mqtt_publisher.connect()
 
 # -------------------------
 # Pydantic models
@@ -1225,6 +1234,25 @@ async def delete_sensor(sensor_id: int, current_user: Dict = Depends(get_current
     except Exception as e:
         if conn:
             conn.close()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ---------------------------------------------------------
+# MANUAL READ-NOW
+# ---------------------------------------------------------
+
+@app.post("/api/devices/{device_uid}/read-now")
+async def trigger_manual_reading(device_uid: str, current_user: Dict = Depends(get_auth_user_or_token)):
+    """Trigger an immediate sensor reading from a device via MQTT"""
+    if not auth.user_can_access_device(current_user["user_id"], device_uid):
+        raise HTTPException(status_code=403, detail="Access denied")
+    try:
+        mqtt_publisher.publish_command(
+            device_uid=device_uid,
+            command="read-now",
+            extra={"requested_by": current_user["username"]}
+        )
+        return {"message": f"Read command sent to {device_uid}"}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

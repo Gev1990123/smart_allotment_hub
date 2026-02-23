@@ -120,6 +120,10 @@
 // ============================================
 // DEVICES PAGE SPECIFIC JAVASCRIPT
 // ============================================
+
+// Pass the current user role from Jinja2 into JS
+const IS_ADMIN = "{{ user.role }}" === "sys_admin";
+
 document.addEventListener('DOMContentLoaded', function() {
     // Load devices
     loadDevices();
@@ -210,6 +214,11 @@ function renderDevices(devices) {
             if (moisture) moistureValue = moisture.sensor_value.toFixed(1);
             if (light) lightValue = Math.round(light.sensor_value);
         }
+
+        // Read Now button — only rendered for admins
+        const readNowBtn = IS_ADMIN
+            ? `<button class="btn-secondary" id="readnow-${device.uid}" onclick="triggerReadNow('${device.uid}')">⚡ Read Now</button>`
+            : '';
         
         return `
             <div class="page-card ${device.isOnline ? '' : 'offline'}">
@@ -253,6 +262,50 @@ function renderDevices(devices) {
             </div>
         `;
     }).join('');
+}
+
+// ============================================
+// READ NOW
+// ============================================
+async function triggerReadNow(deviceUid) {
+    const btn = document.getElementById(`readnow-${deviceUid}`);
+    const originalText = btn.textContent;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Sending...';
+
+    try {
+        const res = await fetch(`/api/devices/${deviceUid}/read-now`, { method: 'POST' });
+        const data = await res.json();
+
+        if (res.ok) {
+            btn.textContent = '✅ Sent!';
+            btn.style.background = '#2e7d32';
+            btn.style.color = 'white';
+            // Refresh readings after a short delay to allow device to respond
+            setTimeout(() => {
+                loadDevices();
+            }, 5000);
+        } else {
+            btn.textContent = '❌ Failed';
+            btn.style.background = '#e53935';
+            btn.style.color = 'white';
+            console.error('Read now failed:', data.detail);
+        }
+    } catch (e) {
+        btn.textContent = '❌ Error';
+        btn.style.background = '#e53935';
+        btn.style.color = 'white';
+        console.error('Read now error:', e);
+    }
+
+    // Reset button after 3 seconds
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        btn.style.background = '';
+        btn.style.color = '';
+    }, 3000);
 }
 
 // ============================================
