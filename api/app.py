@@ -768,17 +768,17 @@ def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(g
 
         cur.execute("""
             SELECT 
-                d.uid as device_uid,
-                sd.sensor_name,
-                sd.time,
-                sd.value,
+                d.uid AS device_uid,
                 sd.sensor_type,
-                sd.unit
+                date_trunc('hour', sd.time) AS time_bucket,
+                AVG(sd.value) AS avg_value,
+                MIN(sd.unit) AS unit
             FROM devices d
             INNER JOIN sensor_data sd ON d.id = sd.device_id
             WHERE d.uid = %s
             AND sd.time > NOW() - INTERVAL '%s hours'
-            ORDER BY sd.time ASC;""", 
+            GROUP BY d.uid, sd.sensor_type, date_trunc('hour', sd.time)
+            ORDER BY time_bucket ASC;""", 
             (device_uid, hours))
 
         raw_rows = cur.fetchall()
@@ -791,8 +791,8 @@ def get_history(device_uid: str, hours: int = 24, current_user: Dict = Depends(g
                 "sensor_name": row[1],
                 "timestamp": row[2],
                 "sensor_value": row[3],
-                "sensor_type": row[4],
-                "unit": row[5]
+                "sensor_type": row[1],
+                "unit": row[4]
             })
         
         return rows
