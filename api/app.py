@@ -714,10 +714,15 @@ def node_health(device_uid: str, current_user: Dict = Depends(get_auth_user_or_t
             return {"status": "offline"}
         
         last_seen = row[0]
+
+        # Normalise to UTC-aware if DB returns naive datetimes
+        if last_seen.tzinfo is None:
+            last_seen = last_seen.replace(tzinfo=timezone.utc)
+
         now = datetime.now(timezone.utc)
         if last_seen and (now - last_seen) < timedelta(minutes=50):
             return {"status": "online"}
-        return {"status": "offline"} 
+        return {"status": "offline"}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
