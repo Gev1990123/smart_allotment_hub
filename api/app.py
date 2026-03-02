@@ -690,8 +690,16 @@ def health():
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
 
 @app.get("/api/node_health/{device_uid}")
-def node_health(device_uid: str):
+def node_health(device_uid: str, current_user: Dict = Depends(get_auth_user_or_token)):
     """Return node health status"""
+
+    # Check if user can access this device
+    if not auth.user_can_access_device(current_user["user_id"], device_uid):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this device"
+        )
+
     try: 
         conn = get_connection()
         cur = conn.cursor()
