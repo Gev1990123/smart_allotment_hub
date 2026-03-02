@@ -690,7 +690,7 @@ def health():
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
 
 @app.get("/api/node_health/{device_uid}")
-def node_health(device_uid: str) -> bool:
+def node_health(device_uid: str):
     """Return node health status"""
     try: 
         conn = get_connection()
