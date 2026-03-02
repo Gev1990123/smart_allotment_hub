@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, Dict, Any
 from pydantic import BaseModel
 from db import get_connection
+from datetime import datetime, timezone, timedelta
 import auth
 import mqtt_publisher
 
@@ -687,6 +688,32 @@ def health():
         return {"status": "ok"}
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
+
+@app.get("/api/node_health")
+def node_health(device_id: int) -> bool:
+    """Return node health status"""
+    try: 
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT last_seen FROM devices WHERE id = %s",
+            (device_id,)
+        )
+        row = cur.fetchone()
+
+        if row is None:
+            return {"status": "offline"}
+        
+        last_seen = row[0]
+        now = datetime.now(timezone.utc)
+        if last_seen and (now - last_seen) < timedelta(minutes=50):
+            return {"status": "online"}
+        return {"status": "offline"} 
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
+
 
 
 # ---------------------------------------------------------

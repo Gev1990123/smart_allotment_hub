@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ─── State ────────────────────────────────────────────
     let currentDeviceUid = null;
+    let currentDeviceId  = null; 
+    let healthInterval   = null;
 
     // Active range: either { hours } or { from, to } ISO strings
     let activeRange = { hours: 24 };
@@ -110,6 +112,35 @@ document.addEventListener('DOMContentLoaded', function () {
         return `/api/history/${deviceUid}?hours=${hours}`;
     }
 
+    // ─── Node Health Check ────────────────────────────────
+    async function checkNodeHealth(deviceId) {
+        const statusEl = document.getElementById('statusValue');
+        try {
+            const res  = await fetch(`/api/node_health?device_id=${deviceId}`);
+            const data = await res.json();
+
+            if (data.status === 'online') {
+                const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                statusEl.textContent = `Live – ${time}`;
+                statusEl.closest('.sensor-card').dataset.health = 'online';
+            } else {
+                statusEl.textContent = 'Offline';
+                statusEl.closest('.sensor-card').dataset.health = 'offline';
+            }
+        } catch (e) {
+            console.error('Health check failed:', e);
+            statusEl.textContent = 'Error';
+            statusEl.closest('.sensor-card').dataset.health = 'error';
+        }
+    }
+
+    /** Start polling health for the current device, cancelling any previous poll */
+    function startHealthPolling(deviceId) {
+        if (healthInterval) clearInterval(healthInterval);
+        checkNodeHealth(deviceId);                              // immediate check
+        healthInterval = setInterval(() => checkNodeHealth(deviceId), 60_000);
+    }
+
     // ─── Fetch devices ────────────────────────────────────
     async function loadDevices() {
         try {
@@ -121,13 +152,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
             data.devices.forEach(device => {
                 const opt = document.createElement('option');
-                opt.value       = device.uid;
-                opt.textContent = device.name || device.uid;
+                opt.value               = device.uid;
+                opt.dataset.deviceId    = device.id;
+                opt.textContent         = device.name || device.uid;
                 select.appendChild(opt);
             });
 
             if (data.devices.length > 0) {
-                currentDeviceUid = data.devices[0].uid;
+                const first      = data.devices[0];
+                currentDeviceUid = first.uid;
+                currentDeviceId  = first.id;
+                startHealthPolling(currentDeviceId);
                 loadLatest(currentDeviceUid);
                 loadHistory(currentDeviceUid);
             }
@@ -141,10 +176,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.getElementById('deviceSelect').addEventListener('change', e => {
+        const selected   = e.target.options[e.target.selectedIndex];
         currentDeviceUid = e.target.value;
+        currentDeviceId  = selected.dataset.deviceId ? parseInt(selected.dataset.deviceId, 10) : null;
         if (currentDeviceUid) {
             loadLatest(currentDeviceUid);
             loadHistory(currentDeviceUid);
+        }
+        if (currentDeviceId) {
+            startHealthPolling(currentDeviceId);
         }
     });
 
@@ -166,7 +206,6 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tempValue').textContent     = tempReading     ? tempReading.sensor_value.toFixed(1)     : '--';
             document.getElementById('moistureValue').textContent = moistureReading ? moistureReading.sensor_value.toFixed(1) : '--';
             document.getElementById('lightValue').textContent    = lightReading    ? lightReading.sensor_value.toFixed(1)    : '--';
-            document.getElementById('statusValue').textContent   = `Live – ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
         } catch (e) {
             console.error('Latest failed:', e);
             document.getElementById('statusValue').textContent = 'Error';
