@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const first      = data.devices[0];
                 currentDeviceUid = first.uid;
                 currentDeviceId  = first.id;
-                startHealthPolling(currentDeviceId);
+                startHealthPolling(currentDeviceUid);
                 loadLatest(currentDeviceUid);
                 loadHistory(currentDeviceUid);
             }
@@ -183,8 +183,8 @@ document.addEventListener('DOMContentLoaded', function () {
             loadLatest(currentDeviceUid);
             loadHistory(currentDeviceUid);
         }
-        if (currentDeviceId) {
-            startHealthPolling(currentDeviceId);
+        if (currentDeviceUid) {
+            startHealthPolling(currentDeviceUid);
         }
     });
 
