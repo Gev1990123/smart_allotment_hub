@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 import auth
 import mqtt_publisher
 
-app = FastAPI(title="Smart Allotment API")
+app = FastAPI(docs_url=None, redoc_url=None, title="Smart Allotment API")
 
 # Allow all origins for now — tighten this down in production
 # to only allow the frontend's actual domain
@@ -689,16 +689,16 @@ def health():
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})
 
-@app.get("/api/node_health")
-def node_health(device_id: int) -> bool:
+@app.get("/api/node_health/{device_uid}")
+def node_health(device_uid: str) -> bool:
     """Return node health status"""
     try: 
         conn = get_connection()
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT last_seen FROM devices WHERE id = %s",
-            (device_id,)
+            "SELECT last_seen FROM devices WHERE uid = %s",
+            (device_uid,)
         )
         row = cur.fetchone()
 

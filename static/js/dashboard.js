@@ -113,10 +113,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ─── Node Health Check ────────────────────────────────
-    async function checkNodeHealth(deviceId) {
+    async function checkNodeHealth(deviceUid) {
         const statusEl = document.getElementById('statusValue');
         try {
-            const res  = await fetch(`/api/node_health?device_id=${deviceId}`);
+            const res  = await fetch(`/api/node_health/${deviceUid}`);
             const data = await res.json();
 
             if (data.status === 'online') {
@@ -135,10 +135,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /** Start polling health for the current device, cancelling any previous poll */
-    function startHealthPolling(deviceId) {
+    function startHealthPolling(deviceUid) {
         if (healthInterval) clearInterval(healthInterval);
-        checkNodeHealth(deviceId);                              // immediate check
-        healthInterval = setInterval(() => checkNodeHealth(deviceId), 60_000);
+        checkNodeHealth(deviceUid);                              // immediate check
+        healthInterval = setInterval(() => checkNodeHealth(deviceUid), 60_000);
     }
 
     // ─── Fetch devices ────────────────────────────────────
