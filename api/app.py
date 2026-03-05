@@ -751,26 +751,27 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_to
         cur = conn.cursor()
 
         cur.execute("""
-                    WITH latest_time AS (
-                        SELECT
-                            sd.sensor_type,
-                            max(sd.time) AS latest_time
-                        FROM devices d
-                        JOIN sensor_data sd ON d.id = sd.device_id
-                        WHERE d.uid = %s
-                        GROUP BY sd.sensor_type
-                    )
-                    SELECT
-                        d.uid          AS device_uid,
-                        sd.sensor_type,
-                        avg(sd.value)  AS avg_value
-                    FROM devices d
-                    JOIN sensor_data sd ON d.id = sd.device_id
-                    JOIN latest_time lt
-                    ON lt.sensor_type = sd.sensor_type
-                    WHERE d.uid = %s
-                    AND sd.time >= lt.latest_time - interval '30 seconds'
-                    GROUP BY d.uid, sd.sensor_type;
+            WITH latest_time AS (
+                SELECT
+                    sd.sensor_type,
+                    max(sd.time) AS latest_time
+                FROM devices d
+                JOIN sensor_data sd ON d.id = sd.device_id
+                WHERE d.uid = %s
+                GROUP BY sd.sensor_type
+            )
+            SELECT
+                d.uid          AS device_uid,
+                sd.sensor_type,
+                avg(sd.value)  AS avg_value,
+                max(sd.unit)   AS unit        
+            FROM devices d
+            JOIN sensor_data sd ON d.id = sd.device_id
+            JOIN latest_time lt
+            ON lt.sensor_type = sd.sensor_type
+            WHERE d.uid = %s
+            AND sd.time >= lt.latest_time - interval '30 seconds'
+            GROUP BY d.uid, sd.sensor_type;
                 """, (device_uid,))
 
         rows = cur.fetchall()
@@ -783,11 +784,9 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_to
         sensors = []
         for row in rows:
             sensors.append({
-                "sensor_name": row[1],
                 "sensor_value": float(row[2]) if row[2] is not None else 0.0,
                 "unit": row[3],
-                "sensor_type": row[4],
-                "timestamp": row[5]
+                "sensor_type": row[1]
             })
 
         return sensors        
