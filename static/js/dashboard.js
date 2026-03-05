@@ -387,10 +387,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // ─── Predictions shortcut ─────────────────────────────
     function goToPredictions() {
         const uid = document.getElementById('deviceSelect').value;
-        if (uid) window.location.href = `/predictions/${uid}`;
+        console.log('Predictions clicked, uid:', uid);
+        if (uid) {
+            window.location.href = `/predictions/${uid}`;
+        } else {
+            alert('Please select a device first.');
+        }
     }
 
-    // Expose to global scope so the onclick in index.html can reach it
     window.goToPredictions = goToPredictions;
 
     // ─── Boot ─────────────────────────────────────────────
