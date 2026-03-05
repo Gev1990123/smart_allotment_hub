@@ -395,7 +395,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    document.getElementById('predictionsBtn').addEventListener('click', goToPredictions);
+    document.getElementById('predictionsBtn').addEventListener('click', function() {
+    alert('clicked!');
+});
 
     // ─── Boot ─────────────────────────────────────────────
     updateActiveLabel();
