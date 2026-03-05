@@ -189,6 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ─── Latest readings ──────────────────────────────────
+    // In loadLatest() - readings is now array of averages per type 
     async function loadLatest(device_uid) {
         try {
             const res      = await fetch(`/api/latest/${device_uid}`);

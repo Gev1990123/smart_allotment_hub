@@ -772,7 +772,7 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_to
             WHERE d.uid = %s
             AND sd.time >= lt.latest_time - interval '30 seconds'
             GROUP BY d.uid, sd.sensor_type;
-                """, (device_uid,))
+                """, (device_uid, device_uid))
 
         rows = cur.fetchall()
         conn.close()
