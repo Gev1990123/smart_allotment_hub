@@ -751,17 +751,26 @@ def get_latest(device_uid: str, current_user: Dict = Depends(get_auth_user_or_to
         cur = conn.cursor()
 
         cur.execute("""
-                    SELECT DISTINCT ON (sd.sensor_type) 
-                        d.uid as device_uid,
-                        sd.sensor_name,
-                        sd.value,
-                        sd.unit,
-                        sd.sensor_type, 
-                        sd.time 
+                    WITH latest_time AS (
+                        SELECT
+                            sd.sensor_type,
+                            max(sd.time) AS latest_time
+                        FROM devices d
+                        JOIN sensor_data sd ON d.id = sd.device_id
+                        WHERE d.uid = %s
+                        GROUP BY sd.sensor_type
+                    )
+                    SELECT
+                        d.uid          AS device_uid,
+                        sd.sensor_type,
+                        avg(sd.value)  AS avg_value
                     FROM devices d
-                    INNER JOIN sensor_data sd ON d.id = sd.device_id
+                    JOIN sensor_data sd ON d.id = sd.device_id
+                    JOIN latest_time lt
+                    ON lt.sensor_type = sd.sensor_type
                     WHERE d.uid = %s
-                    ORDER BY sd.sensor_type, sd.time DESC;
+                    AND sd.time >= lt.latest_time - interval '30 seconds'
+                    GROUP BY d.uid, sd.sensor_type;
                 """, (device_uid,))
 
         rows = cur.fetchall()
