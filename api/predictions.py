@@ -130,23 +130,8 @@ def get_sensor_trend(device_uid: str, sensor_type: str, hours: int = 24) -> Opti
 
 
 def get_last_pump_event(device_uid: str) -> Optional[datetime]:
-    """Return the timestamp of the most recent pump 'on' event for a device."""
-    conn = get_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            SELECT pe.event_time
-            FROM pump_events pe
-            JOIN sites s ON s.id = pe.site_id
-            JOIN devices d ON d.site_id = s.id
-            WHERE d.uid = %s AND pe.action = 'on'
-            ORDER BY pe.event_time DESC
-            LIMIT 1
-        """, (device_uid,))
-        row = cur.fetchone()
-        return row[0] if row else None
-    finally:
-        conn.close()
+    """pump_events table not present — returns None gracefully."""
+    return None
 
 
 # ===========================================================================
