@@ -385,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ─── Predictions shortcut ─────────────────────────────
-    function goToPredictions() {
+    document.getElementById('predictionsBtn').addEventListener('click', () => {
         const uid = document.getElementById('deviceSelect').value;
         console.log('Predictions clicked, uid:', uid);
         if (uid) {
@@ -393,11 +393,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             alert('Please select a device first.');
         }
-    }
-
-    document.getElementById('predictionsBtn').addEventListener('click', function() {
-    alert('clicked!');
-});
+    });
 
     // ─── Boot ─────────────────────────────────────────────
     updateActiveLabel();
