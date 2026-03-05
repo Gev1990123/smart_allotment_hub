@@ -9,6 +9,7 @@ from db import get_connection
 from datetime import datetime, timezone, timedelta
 import auth
 import mqtt_publisher
+from predictions import get_predictions
 
 app = FastAPI(docs_url=None, redoc_url=None, title="Smart Allotment API")
 
@@ -1388,6 +1389,60 @@ async def trigger_pump(device_uid: str, command: PumpCommand, current_user: Dict
         raise HTTPException(status_code=500, detail=str(e))
 
 # ---------------------------------------------------------
+# GET PREDICTIONS FOR A DEVICE
+# ---------------------------------------------------------
+@app.get("/api/predictions/{device_uid}")
+async def device_predictions(
+    device_uid: str,
+    lat: float = DEFAULT_LAT,     # Replace DEFAULT_LAT with your default float
+    lon: float = DEFAULT_LON,     # Replace DEFAULT_LON with your default float
+    planting_date: str | None = None,
+    current_user: Dict = Depends(get_auth_user_or_token),
+):
+    """
+    Return watering recommendations, frost alerts, and growth forecast
+    for a device.
+
+    Query params:
+      lat           — latitude of the allotment (defaults to config value)
+      lon           — longitude of the allotment (defaults to config value)
+      planting_date — optional ISO date string (YYYY-MM-DD) for GDD tracking
+    """
+    if not auth.user_can_access_device(current_user["user_id"], device_uid):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        result = await get_predictions(
+            device_uid=device_uid,
+            lat=lat,
+            lon=lon,
+            planting_date=planting_date,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# ---------------------------------------------------------
+# WEATHER FORECAST ONLY (lightweight, no sensor data)
+# ---------------------------------------------------------
+@app.get("/api/weather")
+async def weather_forecast(
+    lat: float = 51.7731,
+    lon: float = 0.6149,
+    current_user: Dict = Depends(get_auth_user_or_token),
+):
+    """
+    Return raw 7-day Open-Meteo forecast for the given coordinates.
+    Useful for dashboard weather widgets independent of a specific device.
+    """
+    from predictions import fetch_weather_forecast
+    try:
+        data = await fetch_weather_forecast(lat, lon)
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Weather API error: {e}")
+
+# ---------------------------------------------------------
 # UI ROUTES (HTML Templates)
 # ---------------------------------------------------------
 
@@ -1483,3 +1538,24 @@ def users_page(request: Request, current_user: Optional[Dict] = Depends(get_opti
         "user": current_user
     })
 
+
+# ---------------------------------------------------------
+# PREDICTIONS PAGE (HTML template)
+# ---------------------------------------------------------
+@app.get("/predictions/{device_id}")
+def predictions_page(
+    device_id: str,
+    request: Request,
+    current_user: Optional[Dict] = Depends(get_optional_user),
+):
+    """Predictions dashboard page for a specific device."""
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+
+    if not auth.user_can_access_device(current_user["user_id"], device_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return templates.TemplateResponse(
+        "predictions.html",
+        {"request": request, "device_id": device_id, "user": current_user},
+    )

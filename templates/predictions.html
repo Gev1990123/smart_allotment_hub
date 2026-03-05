@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Predictions — Smart Allotment Hub</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        /* ── Predictions-specific styles (extends styles.css) ── */
+
+        /* Location config bar */
+        .pred-config-bar {
+            background: #fff;
+            padding: 18px 22px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0px 2px 4px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: flex-end;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .pred-config-bar .section-title {
+            width: 100%;
+            font-size: 13px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 2px;
+        }
+
+        .pred-config-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .pred-config-field span {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .pred-config-field input {
+            padding: 7px 10px;
+            border: 1.5px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+            color: #333;
+            background: #fafafa;
+            transition: border-color 0.2s;
+            width: 140px;
+        }
+
+        .pred-config-field input[type="date"]   { width: 160px; }
+        .pred-config-field input[type="number"] { width: 120px; }
+
+        .pred-config-field input:focus {
+            outline: none;
+            border-color: #2e7d32;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(46,125,50,0.1);
+        }
+
+        /* Section labels */
+        .pred-section-header {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2e7d32;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pred-section-header::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e0e0e0;
+        }
+
+        /* Grid layouts */
+        .pred-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .pred-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        /* Prediction cards */
+        .pred-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 22px;
+            box-shadow: 0px 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #2e7d32;
+            animation: fadeSlideUp 0.35s ease both;
+        }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .pred-card.urgent  { border-left-color: #e53935; }
+        .pred-card.warning { border-left-color: #f57c00; }
+        .pred-card.info    { border-left-color: #1565c0; }
+        .pred-card.ok      { border-left-color: #2e7d32; }
+        .pred-card.purple  { border-left-color: #6a1b9a; }
+
+        .pred-card-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 14px;
+        }
+
+        /* Sensor reading rows */
+        .reading-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .reading-row:last-child { margin-bottom: 0; }
+
+        .reading-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+
+        .reading-label {
+            font-size: 13px;
+            color: #666;
+            width: 90px;
+            flex-shrink: 0;
+        }
+
+        .reading-bar-wrap {
+            flex: 1;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .reading-bar {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.7s ease;
+        }
+
+        .reading-val {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            min-width: 64px;
+            text-align: right;
+        }
+
+        .reading-trend {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .trend-rising  { background: #e8f5e9; color: #2e7d32; }
+        .trend-falling { background: #ffebee; color: #c62828; }
+        .trend-stable  { background: #f5f5f5; color: #888; }
+
+        /* Watering card */
+        .watering-rec {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .rec-icon-big { font-size: 38px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+
+        .rec-body { flex: 1; }
+
+        .rec-urgency-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .urgency-high   { background: #ffebee; color: #c62828; }
+        .urgency-medium { background: #fff3e0; color: #e65100; }
+        .urgency-low    { background: #e8f5e9; color: #2e7d32; }
+
+        .rec-headline {
+            font-size: 16px;
+            font-weight: 700;
+            color: #222;
+            margin-bottom: 8px;
+        }
+
+        .rec-reasons {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .rec-reasons li {
+            font-size: 13px;
+            color: #555;
+            padding: 3px 0 3px 16px;
+            position: relative;
+            line-height: 1.45;
+        }
+
+        .rec-reasons li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #2e7d32;
+            font-size: 12px;
+        }
+
+        .rec-meta-pill {
+            display: inline-block;
+            margin-top: 8px;
+            margin-right: 6px;
+            font-size: 12px;
+            color: #666;
+            background: #f5f5f5;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        /* Alert cards */
+        .alert-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .alert-item {
+            background: #fff8f8;
+            border: 1px solid #ffcdd2;
+            border-radius: 8px;
+            padding: 12px 14px;
+            border-left: 3px solid #e53935;
+        }
+
+        .alert-item.rain-alert {
+            background: #f3f6ff;
+            border-color: #bbdefb;
+            border-left-color: #1565c0;
+        }
+
+        .alert-item-title  { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 4px; }
+        .alert-item-detail { font-size: 13px; color: #555; line-height: 1.4; }
+
+        .no-alerts-msg {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #2e7d32;
+            font-weight: 500;
+            padding: 8px 0;
+        }
+
+        /* Growth card */
+        .growth-stage-label { font-size: 20px; font-weight: 700; color: #222; margin-bottom: 6px; }
+
+        .growth-tip {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 16px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .gdd-row { display: flex; gap: 10px; }
+
+        .gdd-box {
+            flex: 1;
+            background: #f9fdf9;
+            border: 1px solid #c8e6c9;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .gdd-val { font-size: 20px; font-weight: 700; color: #2e7d32; }
+        .gdd-lbl { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+        .gdd-total-box { background: #e8f5e9; border-color: #a5d6a7; }
+        .gdd-total-box .gdd-val { color: #1b5e20; font-size: 24px; }
+
+        .light-note {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #555;
+            background: #fffde7;
+            border: 1px solid #fff176;
+            border-radius: 6px;
+            padding: 8px 12px;
+        }
+
+        /* 7-day forecast */
+        .forecast-card {
+            background: #fff;
+            padding: 22px;
+            border-radius: 10px;
+            box-shadow: 0px 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .forecast-card h3 {
+            font-size: 16px;
+            color: #2e7d32;
+            margin: 0 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .forecast-strip {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: thin;
+            scrollbar-color: #c8e6c9 transparent;
+        }
+
+        .forecast-day {
+            flex-shrink: 0;
+            width: 88px;
+            background: #f6f8fa;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .forecast-day:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .forecast-day.frost-risk { border-color: #90caf9; background: #e3f2fd; }
+
+        .fc-day-name {
+            font-size: 11px;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 6px;
+        }
+
+        .fc-icon  { font-size: 22px; margin-bottom: 4px; }
+        .fc-max   { font-size: 15px; font-weight: 700; color: #c62828; }
+        .fc-min   { font-size: 13px; color: #1565c0; font-weight: 600; }
+        .fc-rain  { font-size: 11px; color: #888; margin-top: 4px; }
+        .fc-gdd   {
+            font-size: 10px;
+            color: #2e7d32;
+            background: #e8f5e9;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .forecast-legend { font-size: 12px; color: #999; margin-top: 10px; }
+
+        /* Loading / error */
+        .pred-state-box {
+            background: #fff;
+            border-radius: 10px;
+            padding: 60px 20px;
+            text-align: center;
+            box-shadow: 0px 2px 4px rgba(0,0,0,0.08);
+            color: #aaa;
+            font-size: 15px;
+        }
+
+        .pred-state-box .spinner {
+            width: 28px; height: 28px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #2e7d32;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        /* Timestamp */
+        .pred-timestamp { font-size: 12px; color: #aaa; text-align: right; margin-top: 5px; margin-bottom: 30px; }
+
+        @media (max-width: 768px) {
+            .pred-config-bar  { flex-direction: column; align-items: stretch; gap: 12px; }
+            .pred-config-field input { width: 100%; }
+            .pred-grid-3, .pred-grid-2 { grid-template-columns: 1fr; }
+            .gdd-row { flex-wrap: wrap; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>🌱 Smart Allotment Dashboard</h1>
+</header>
+
+<!-- NAVIGATION -->
+<nav>
+    <div class="nav-links">
+        <a href="/">📊 Dashboard</a>
+        <a href="/devices">📡 Devices</a>
+        <a href="/sites">🏡 Sites</a>
+        <a href="/sensors">🔧 Sensors</a>
+        {% if user.role == 'sys_admin' %}
+        <a href="/users">👤 Users</a>
+        {% endif %}
+    </div>
+    <div class="nav-user">
+        <span class="user-info">
+            <strong>{{ user.full_name or user.username }}</strong>
+            {% if user.role == 'sys_admin' %}
+            <span class="user-role-badge">Admin</span>
+            {% endif %}
+        </span>
+        <button onclick="logout()" class="btn-secondary">Logout</button>
+    </div>
+</nav>
+
+<main>
+
+    <!-- Page heading -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;">
+        <div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;font-family:monospace;letter-spacing:0.05em;">
+                DEVICE / {{ device_id }}
+            </div>
+            <h2 style="margin:0;font-size:22px;color:#2e7d32;">🔮 Predictions &amp; Forecasts</h2>
+        </div>
+        <a href="/device/{{ device_id }}"
+           style="font-size:13px;color:#2e7d32;border:1.5px solid #c8e6c9;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:600;transition:background 0.2s;white-space:nowrap;"
+           onmouseover="this.style.background='#f0f4f0'" onmouseout="this.style.background=''">
+            ← Back to Device
+        </a>
+    </div>
+
+    <!-- Config / location bar -->
+    <div class="pred-config-bar">
+        <div class="section-title">📍 Location &amp; Planting Settings</div>
+
+        <div class="pred-config-field">
+            <span>Latitude</span>
+            <input type="number" id="inp-lat" step="0.0001" placeholder="e.g. 51.5074" />
+        </div>
+        <div class="pred-config-field">
+            <span>Longitude</span>
+            <input type="number" id="inp-lon" step="0.0001" placeholder="e.g. -0.1278" />
+        </div>
+        <div class="pred-config-field">
+            <span>Planting Date (optional)</span>
+            <input type="date" id="inp-date" />
+        </div>
+
+        <button class="apply-btn" onclick="loadPredictions()" style="align-self:flex-end;">
+            🔄 Refresh
+        </button>
+
+        <div class="active-range-label" style="margin-left:auto;align-self:center;">
+            Weather: <strong>Open-Meteo · Free · No API key</strong>
+        </div>
+    </div>
+
+    <!-- Dynamic predictions area -->
+    <div id="pred-root">
+        <div class="pred-state-box">
+            <div class="spinner"></div>
+            Loading predictions…
+        </div>
+    </div>
+
+    <p class="pred-timestamp" id="pred-timestamp"></p>
+
+</main>
+
+<script>
+    const DEVICE_UID = "{{ device_id }}";
+
+    /* ── Helpers ─────────────────────────────────────────── */
+    function wmoIcon(code) {
+        if (code == null) return "🌡️";
+        if (code === 0)   return "☀️";
+        if (code <= 2)    return "🌤️";
+        if (code <= 3)    return "☁️";
+        if (code <= 49)   return "🌫️";
+        if (code <= 67)   return "🌧️";
+        if (code <= 77)   return "❄️";
+        if (code <= 82)   return "🌦️";
+        if (code <= 99)   return "⛈️";
+        return "🌡️";
+    }
+
+    function dayLabel(dateStr) {
+        return new Date(dateStr + "T12:00:00Z")
+            .toLocaleDateString("en-GB", { weekday: "short" });
+    }
+
+    function recIcon(rec) {
+        return { water_now:"💧", wait_for_rain:"🌧️", monitor:"👀", no_action:"✅", check_sensors:"⚠️" }[rec] || "❓";
+    }
+
+    function recHeadline(rec) {
+        return {
+            water_now:     "Water your plants",
+            wait_for_rain: "Rain expected — hold off watering",
+            monitor:       "Monitor moisture levels",
+            no_action:     "No watering needed right now",
+            check_sensors: "Check your sensor readings",
+        }[rec] || rec;
+    }
+
+    function moistureColor(pct) {
+        if (pct < 35) return "#e53935";
+        if (pct < 55) return "#f57c00";
+        return "#2e7d32";
+    }
+
+    /* ── Render ──────────────────────────────────────────── */
+    function render(data) {
+        const w  = data.watering;
+        const fr = data.frost_alerts;
+        const gr = data.growth;
+        const wf = data.weather_forecast || [];
+        const cs = data.current_sensors;
+
+        /* — Sensors card — */
+        const mPct = cs.moisture_pct  != null ? cs.moisture_pct.toFixed(1)                      : null;
+        const tC   = cs.temperature_c != null ? cs.temperature_c.toFixed(1)                      : null;
+        const lLux = cs.light_lux     != null ? Math.round(cs.light_lux).toLocaleString("en-GB") : null;
+
+        const mBar = mPct  ? Math.min(parseFloat(mPct), 100) : 0;
+        const tBar = tC    ? Math.min(Math.max((parseFloat(tC) / 40) * 100, 0), 100) : 0;
+        const lBar = cs.light_lux ? Math.min((cs.light_lux / 50000) * 100, 100) : 0;
+
+        const trendHtml = w.moisture_trend ? `
+            <span class="reading-trend trend-${w.moisture_trend}">
+                ${w.moisture_trend === 'rising' ? '↑ Rising' : w.moisture_trend === 'falling' ? '↓ Falling' : '→ Stable'}
+            </span>` : "";
+
+        const sensorsCard = `
+        <div class="pred-card info" style="animation-delay:0.05s">
+            <div class="pred-card-title">📡 Current Sensor Readings (6h avg)</div>
+            <div class="reading-row">
+                <div class="reading-icon">💧</div>
+                <div class="reading-label">Moisture</div>
+                <div class="reading-bar-wrap"><div class="reading-bar" style="width:${mBar}%;background:${moistureColor(parseFloat(mPct)||0)}"></div></div>
+                <div class="reading-val">${mPct != null ? mPct + '%' : '—'}</div>
+                ${trendHtml}
+            </div>
+            <div class="reading-row">
+                <div class="reading-icon">🌡️</div>
+                <div class="reading-label">Temperature</div>
+                <div class="reading-bar-wrap"><div class="reading-bar" style="width:${tBar}%;background:#f57c00"></div></div>
+                <div class="reading-val">${tC != null ? tC + '°C' : '—'}</div>
+            </div>
+            <div class="reading-row">
+                <div class="reading-icon">☀️</div>
+                <div class="reading-label">Light</div>
+                <div class="reading-bar-wrap"><div class="reading-bar" style="width:${lBar}%;background:#fbc02d"></div></div>
+                <div class="reading-val">${lLux != null ? lLux + ' lx' : '—'}</div>
+            </div>
+        </div>`;
+
+        /* — Watering card — */
+        const urgencyClass = { high:"urgency-high", medium:"urgency-medium", low:"urgency-low" }[w.urgency] || "urgency-low";
+        const cardBorder   = { high:"urgent", medium:"warning", low:"ok" }[w.urgency] || "ok";
+        const reasonsHtml  = (w.reasons || []).map(r => `<li>${r}</li>`).join("");
+
+        const waterCard = `
+        <div class="pred-card ${cardBorder}" style="animation-delay:0.1s">
+            <div class="pred-card-title">💧 Watering Recommendation</div>
+            <div class="watering-rec">
+                <div class="rec-icon-big">${recIcon(w.recommendation)}</div>
+                <div class="rec-body">
+                    <span class="rec-urgency-badge ${urgencyClass}">${w.urgency} priority</span>
+                    <div class="rec-headline">${recHeadline(w.recommendation)}</div>
+                    <ul class="rec-reasons">${reasonsHtml}</ul>
+                    ${w.suggested_in_hours
+                        ? `<span class="rec-meta-pill">⏱ Within ${w.suggested_in_hours}h</span>` : ""}
+                    ${w.rain_forecast_mm
+                        ? `<span class="rec-meta-pill">🌧 ${w.rain_forecast_mm.toFixed(1)} mm forecast (${w.rain_probability}% prob)</span>` : ""}
+                </div>
+            </div>
+        </div>`;
+
+        /* — Alerts card — */
+        const alertsHtml = (fr.alerts || []).map(a => `
+            <div class="alert-item ${a.type === 'heavy_rain' ? 'rain-alert' : ''}">
+                <div class="alert-item-title">${a.type === 'frost' ? '🧊' : '🌧️'} ${a.title}</div>
+                <div class="alert-item-detail">${a.detail}</div>
+            </div>`).join("");
+
+        const alertCard = `
+        <div class="pred-card ${fr.alert_count > 0 ? 'urgent' : 'ok'}" style="animation-delay:0.15s">
+            <div class="pred-card-title">⚠️ Weather Alerts (7-day)</div>
+            ${fr.alert_count > 0
+                ? `<div class="alert-list">${alertsHtml}</div>`
+                : `<div class="no-alerts-msg">✅ No frost or severe weather in the next 7 days.</div>`}
+        </div>`;
+
+        /* — Growth card — */
+        const growthCard = `
+        <div class="pred-card purple" style="animation-delay:0.2s">
+            <div class="pred-card-title">🌿 Plant Growth Forecast</div>
+            <div class="growth-stage-label">${gr.growth_stage_label}</div>
+            <div class="growth-tip">${gr.growth_stage_tip}</div>
+            <div class="gdd-row">
+                <div class="gdd-box">
+                    <div class="gdd-val">${gr.historical_gdd}</div>
+                    <div class="gdd-lbl">GDD · 30d history</div>
+                </div>
+                <div class="gdd-box">
+                    <div class="gdd-val">${gr.forecast_gdd_7d}</div>
+                    <div class="gdd-lbl">GDD · 7d forecast</div>
+                </div>
+                <div class="gdd-box gdd-total-box">
+                    <div class="gdd-val">${gr.total_gdd}</div>
+                    <div class="gdd-lbl">Total GDD</div>
+                </div>
+            </div>
+            ${gr.light_assessment
+                ? `<div class="light-note">☀️ ${gr.light_assessment}</div>`
+                : ""}
+        </div>`;
+
+        /* — 7-day forecast — */
+        const forecastDays = wf.map((d, i) => {
+            const frost = d.temperature_2m_min != null && d.temperature_2m_min <= 2;
+            const gdd   = gr.daily_gdd_forecast && gr.daily_gdd_forecast[i] ? gr.daily_gdd_forecast[i].gdd : null;
+            return `
+            <div class="forecast-day ${frost ? 'frost-risk' : ''}">
+                <div class="fc-day-name">${dayLabel(d.date)}</div>
+                <div class="fc-icon">${wmoIcon(d.weathercode)}</div>
+                <div class="fc-max">${d.temperature_2m_max != null ? d.temperature_2m_max.toFixed(0) + '°' : '—'}</div>
+                <div class="fc-min">${d.temperature_2m_min != null ? d.temperature_2m_min.toFixed(0) + '°' : '—'}</div>
+                <div class="fc-rain">${d.precipitation_sum > 0 ? '🌧 ' + d.precipitation_sum.toFixed(1) + 'mm' : ''}</div>
+                ${gdd != null ? `<div class="fc-gdd">+${gdd} GDD</div>` : ""}
+            </div>`;
+        }).join("");
+
+        /* — Assemble — */
+        document.getElementById("pred-root").innerHTML = `
+            <div class="pred-section-header">Overview</div>
+            <div class="pred-grid-3">${sensorsCard}${waterCard}${alertCard}</div>
+
+            <div class="pred-section-header">Growth &amp; 7-Day Forecast</div>
+            <div class="pred-grid-2">
+                ${growthCard}
+                <div class="forecast-card">
+                    <h3>📅 7-Day Weather Forecast</h3>
+                    <div class="forecast-strip">${forecastDays}</div>
+                    <div class="forecast-legend">🟦 Blue highlight = frost risk (min ≤ 2°C) &nbsp;·&nbsp; GDD = Growing Degree Days</div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("pred-timestamp").textContent =
+            `Predictions generated ${new Date(data.generated_at).toLocaleString("en-GB")} · Weather: Open-Meteo (open-meteo.com)`;
+    }
+
+    /* ── Fetch ───────────────────────────────────────────── */
+    async function loadPredictions() {
+        document.getElementById("pred-root").innerHTML =
+            `<div class="pred-state-box"><div class="spinner"></div>Fetching predictions…</div>`;
+        document.getElementById("pred-timestamp").textContent = "";
+
+        const lat  = document.getElementById("inp-lat").value.trim();
+        const lon  = document.getElementById("inp-lon").value.trim();
+        const date = document.getElementById("inp-date").value.trim();
+
+        let url = `/api/predictions/${DEVICE_UID}`;
+        const params = new URLSearchParams();
+        if (lat)  params.set("lat", lat);
+        if (lon)  params.set("lon", lon);
+        if (date) params.set("planting_date", date);
+        if ([...params].length) url += "?" + params.toString();
+
+        try {
+            const resp = await fetch(url, { credentials: "include" });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${resp.status}`);
+            }
+            render(await resp.json());
+        } catch (e) {
+            document.getElementById("pred-root").innerHTML = `
+                <div class="pred-state-box">
+                    ⚠️ Could not load predictions<br/>
+                    <span style="color:#e53935;display:block;margin-top:8px;font-size:13px;">${e.message}</span>
+                </div>`;
+        }
+    }
+
+    async function logout() {
+        await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+        window.location.href = "/login";
+    }
+
+    loadPredictions();
+</script>
+
+</body>
+</html>
