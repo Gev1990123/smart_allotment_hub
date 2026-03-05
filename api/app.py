@@ -1394,8 +1394,8 @@ async def trigger_pump(device_uid: str, command: PumpCommand, current_user: Dict
 @app.get("/api/predictions/{device_uid}")
 async def device_predictions(
     device_uid: str,
-    lat: float = DEFAULT_LAT,     # Replace DEFAULT_LAT with your default float
-    lon: float = DEFAULT_LON,     # Replace DEFAULT_LON with your default float
+    lat: float = 51.7731,
+    lon: float = 0.6149,
     planting_date: str | None = None,
     current_user: Dict = Depends(get_auth_user_or_token),
 ):
