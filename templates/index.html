@@ -158,6 +158,16 @@
     <!-- Shared Scripts -->
     <script src="/static/js/scripts.js"></script>
     <script src="/static/js/dashboard.js"></script>
+    <script>
+        document.getElementById('predictionsBtn').addEventListener('click', function() {
+            const uid = document.getElementById('deviceSelect').value;
+            if (uid) {
+                window.location.href = '/predictions/' + uid;
+            } else {
+                alert('Please select a device first.');
+            }
+        });
+    </script>
 
 </body>
 </html>
