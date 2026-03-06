@@ -126,19 +126,24 @@ def activate_device_if_needed(conn, uid: str) -> int | None:
 
 def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
     """
-    Compare a moisture reading against the sensor's plant profile.
+    Compare a moisture reading against the sensor's assigned plant profile.
     Falls back to 'General' if no profile is assigned.
-    Logs to moisture_events and triggers relay/notification if out of range.
+
+    Responsibilities:
+      - Determine status: ok / too_dry / too_wet
+      - Log every reading to moisture_events
+      - Emit a warning log if out of range (pump trigger is logic.py's job)
+
+    NOTE: Does NOT commit — caller (on_message) commits once at the end.
     """
     cur = conn.cursor()
 
-    # Get thresholds — assigned profile takes priority, General is the fallback
+    # Get thresholds — assigned profile wins, General is the fallback
     cur.execute("""
         SELECT
-            COALESCE(pp.id,          gp.id)           AS profile_id,
-            COALESCE(pp.name,        gp.name)          AS profile_name,
-            COALESCE(pp.moisture_min, gp.moisture_min) AS moisture_min,
-            COALESCE(pp.moisture_max, gp.moisture_max) AS moisture_max
+            COALESCE(pp.name,         gp.name)          AS profile_name,
+            COALESCE(pp.moisture_min, gp.moisture_min)  AS moisture_min,
+            COALESCE(pp.moisture_max, gp.moisture_max)  AS moisture_max
         FROM sensors s
         LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
         LEFT JOIN plant_profiles pp  ON pp.id = spa.plant_profile_id
@@ -148,13 +153,15 @@ def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
 
     row = cur.fetchone()
     if not row:
+        logger.warning(f"Could not resolve plant profile for sensor_id={sensor_db_id}")
         cur.close()
         return
 
-    _, profile_name, moisture_min, moisture_max = row
+    profile_name, moisture_min, moisture_max = row
     moisture_min = float(moisture_min)
     moisture_max = float(moisture_max)
 
+    # Determine status
     if value < moisture_min:
         status = "too_dry"
     elif value > moisture_max:
@@ -162,36 +169,20 @@ def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
     else:
         status = "ok"
 
-    # Debounce — only act if no action in the last 30 minutes
-    can_act = False
-    if status != "ok":
-        cur.execute("""
-            SELECT last_action_at FROM moisture_events
-            WHERE sensor_id = %s
-            ORDER BY created_at DESC LIMIT 1;
-        """, (sensor_db_id,))
-        last = cur.fetchone()
-        now = datetime.now(timezone.utc)
-        can_act = (
-            not last
-            or last[0] is None
-            or (now - last[0]).total_seconds() > 1800
+    if status == "too_dry":
+        logger.warning(
+            f"💧 sensor_id={sensor_db_id} TOO DRY: {value}% < {moisture_min}% [{profile_name}]"
+        )
+    elif status == "too_wet":
+        logger.warning(
+            f"🌊 sensor_id={sensor_db_id} TOO WET: {value}% > {moisture_max}% [{profile_name}]"
+        )
+    else:
+        logger.info(
+            f"🌱 sensor_id={sensor_db_id} OK: {value}% within {moisture_min}–{moisture_max}% [{profile_name}]"
         )
 
-    action_taken = None
-    now = datetime.now(timezone.utc)
-
-    if status == "too_dry" and can_act:
-        logger.warning(f"💧 Sensor {sensor_db_id} too dry ({value}% < {moisture_min}%) [{profile_name}] — triggering relay")
-        # TODO: mqtt_publisher.publish_command(device_uid, "pump", {"action": "run", "seconds": 10})
-        action_taken = "relay_triggered"
-
-    elif status == "too_wet" and can_act:
-        logger.warning(f"🌊 Sensor {sensor_db_id} too wet ({value}% > {moisture_max}%) [{profile_name}] — sending notification")
-        # TODO: send webhook/notification here
-        action_taken = "notification_sent"
-
-    # Always log the event (ok or not)
+    # Log to moisture_events (no pump trigger — that's logic.py's responsibility)
     cur.execute("""
         INSERT INTO moisture_events (
             sensor_id, device_id, site_id,
@@ -202,17 +193,15 @@ def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
             %s, %s,
             (SELECT site_id FROM devices WHERE id = %s),
             %s, %s, %s,
-            %s, %s, %s
+            %s, NULL, NULL
         );
     """, (
         sensor_db_id, device_db_id, device_db_id,
         value, moisture_min, moisture_max,
-        status, action_taken,
-        now if action_taken else None
+        status
     ))
 
     cur.close()
-    logger.info(f"🌱 Moisture check: sensor={sensor_db_id} value={value}% status={status} profile={profile_name}")
 
 
 def on_message(client, userdata, msg):
