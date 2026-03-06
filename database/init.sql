@@ -133,17 +133,20 @@ CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_device_id ON api_tokens(device_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(active);
 
--- Plant profiles (predefined list)
+-- ============================================
+-- PLANT PROFILES
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS plant_profiles (
     id           SERIAL PRIMARY KEY,
-    name         VARCHAR(100) UNIQUE NOT NULL,  -- e.g. "Tomato", "General"
+    name         VARCHAR(100) UNIQUE NOT NULL,
     moisture_min NUMERIC(5,2) NOT NULL,
     moisture_max NUMERIC(5,2) NOT NULL,
     description  TEXT,
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Seed data
+-- Seed predefined profiles
 INSERT INTO plant_profiles (name, moisture_min, moisture_max, description) VALUES
     ('General',    30, 70, 'Safe default for unknown plants'),
     ('Tomato',     50, 75, 'Consistent moisture, dislikes drying out'),
@@ -155,8 +158,7 @@ INSERT INTO plant_profiles (name, moisture_min, moisture_max, description) VALUE
     ('Strawberry', 50, 70, 'Even moisture, avoid crown rot')
 ON CONFLICT (name) DO NOTHING;
 
--- Link sensors to a plant profile
--- Joins to your existing sensors table via sensors.id
+-- Link a sensor to a plant profile (one profile per moisture sensor)
 CREATE TABLE IF NOT EXISTS sensor_plant_assignments (
     sensor_id        INT PRIMARY KEY REFERENCES sensors(id) ON DELETE CASCADE,
     plant_profile_id INT NOT NULL REFERENCES plant_profiles(id),
@@ -164,24 +166,27 @@ CREATE TABLE IF NOT EXISTS sensor_plant_assignments (
     assigned_by      INT REFERENCES users(id)
 );
 
--- Moisture event log (too_dry / too_wet / ok)
+-- Moisture event log — every reading evaluated and recorded here
 CREATE TABLE IF NOT EXISTS moisture_events (
-    id               BIGSERIAL,
-    sensor_id        INT NOT NULL REFERENCES sensors(id),
-    device_id        INT NOT NULL REFERENCES devices(id),
-    site_id          INT NOT NULL REFERENCES sites(id),
-    reading          NUMERIC(5,2) NOT NULL,
-    expected_min     NUMERIC(5,2) NOT NULL,
-    expected_max     NUMERIC(5,2) NOT NULL,
-    status           VARCHAR(10) NOT NULL CHECK (status IN ('too_dry', 'too_wet', 'ok')),
-    action_taken     VARCHAR(50),   -- 'relay_triggered', 'notification_sent', null
-    last_action_at   TIMESTAMPTZ,   -- debounce: don't re-trigger within 30 min
-    created_at       TIMESTAMPTZ DEFAULT NOW()
+    id             BIGSERIAL,
+    sensor_id      INT NOT NULL REFERENCES sensors(id),
+    device_id      INT NOT NULL REFERENCES devices(id),
+    site_id        INT NOT NULL REFERENCES sites(id),
+    reading        NUMERIC(5,2) NOT NULL,
+    expected_min   NUMERIC(5,2) NOT NULL,
+    expected_max   NUMERIC(5,2) NOT NULL,
+    status         VARCHAR(10) NOT NULL CHECK (status IN ('too_dry', 'too_wet', 'ok')),
+    action_taken   VARCHAR(50),
+    last_action_at TIMESTAMPTZ,
+    created_at     TIMESTAMPTZ DEFAULT NOW()
+);
 
 SELECT create_hypertable('moisture_events', 'created_at');
-CREATE INDEX idx_moisture_events_sensor ON moisture_events(sensor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_moisture_events_sensor ON moisture_events(sensor_id, created_at DESC);
     
--- Function to clean up expired tokens
+-- ============================================
+-- UTILITY FUNCTIONS
+-- ============================================
 CREATE OR REPLACE FUNCTION cleanup_expired_tokens()
 RETURNS void AS $$
 BEGIN
@@ -223,7 +228,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Comments
+-- ============================================
+-- COMMENTS
+-- ============================================
 COMMENT ON TABLE users IS 'User accounts for dashboard access';
 COMMENT ON TABLE user_site_assignments IS 'Maps users to sites they can access';
 COMMENT ON TABLE sessions IS 'Active user sessions';
@@ -234,3 +241,6 @@ COMMENT ON COLUMN api_tokens.user_id IS 'If token belongs to a user (for user AP
 COMMENT ON COLUMN api_tokens.device_id IS 'If token belongs to a device (for device data submission)';
 COMMENT ON COLUMN api_tokens.scopes IS 'Array of permission scopes (read:sensors, write:sensors, etc.)';
 COMMENT ON COLUMN api_tokens.name IS 'Human-readable name for the token';
+COMMENT ON TABLE plant_profiles IS 'Predefined moisture thresholds per plant type';
+COMMENT ON TABLE sensor_plant_assignments IS 'Links a moisture sensor to its plant profile';
+COMMENT ON TABLE moisture_events IS 'Log of every moisture evaluation — ok, too_dry, or too_wet';
