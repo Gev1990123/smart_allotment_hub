@@ -126,7 +126,7 @@ function renderSensorsTable(sensors) {
             <thead>
                 <tr>
                     <th>Device</th>
-                    <th>Sensor ID</th>
+                    <th>Sensor Name</th>
                     <th>Type</th>
                     <th>Unit</th>
                     <th>Status</th>
@@ -170,7 +170,7 @@ function renderSensorRow(sensor) {
     // Plant assign button — only for moisture sensors
     const plantBtn = sensor.sensor_type === 'moisture'
         ? `<button class="btn-small" style="background:#2e7d32;" 
-               onclick="openPlantModal(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}', ${sensor.plant_profile_id || 'null'})">
+               onclick="openPlantModal(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}', ${sensor.plant_profile_id === null || sensor.plant_profile_id === undefined ? 'null' : sensor.plant_profile_id})">
                🌱 Plant
            </button>`
         : '';
@@ -178,7 +178,7 @@ function renderSensorRow(sensor) {
     return `
         <tr class="${sensor.active ? '' : 'inactive-row'}">
             <td data-label="Device"><span class="device-uid">${sensor.device_uid}</span></td>
-            <td data-label="Sensor ID"><strong>${sensor.sensor_name}</strong></td>
+            <td data-label="Sensor Name"><strong>${sensor.sensor_name}</strong></td>
             <td data-label="Type">${sensor.sensor_type}</td>
             <td data-label="Unit">${sensor.unit || '--'}</td>
             <td data-label="Status">${statusBadge}</td>
@@ -205,9 +205,14 @@ function renderSensorRow(sensor) {
 // PLANT PROFILE MODAL
 // ============================================
 function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
+    // Coerce to int or null — guards against the string "null" arriving from inline HTML
+    const profileId = (currentProfileId === null || currentProfileId === 'null' || currentProfileId === undefined)
+        ? null
+        : parseInt(currentProfileId, 10);
+
     plantModalSensorId = sensorId;
-    plantModalSelectedProfileId = currentProfileId;
-    plantModalCurrentProfileId = currentProfileId;
+    plantModalSelectedProfileId = profileId;
+    plantModalCurrentProfileId = profileId;
 
     document.getElementById('plantModalSensorName').textContent = sensorName;
     document.getElementById('plantModalDeviceUid').textContent = deviceUid;
@@ -225,11 +230,11 @@ function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
         currentStrip.style.display = 'none';
     }
 
-    renderPlantProfileCards(currentProfileId);
+    renderPlantProfileCards();
     document.getElementById('plantModal').style.display = 'block';
 }
 
-function renderPlantProfileCards(selectedId) {
+function renderPlantProfileCards() {
     const grid = document.getElementById('plantProfileCards');
 
     if (!allPlantProfiles.length) {
@@ -238,7 +243,7 @@ function renderPlantProfileCards(selectedId) {
     }
 
     grid.innerHTML = allPlantProfiles.map(profile => `
-        <div class="plant-profile-card ${selectedId === profile.id ? 'selected' : ''}"
+        <div class="plant-profile-card ${plantModalSelectedProfileId === profile.id ? 'selected' : ''}"
              onclick="selectPlantCard(${profile.id}, this)">
             <div class="plant-card-name">${profile.name}</div>
             <div class="plant-card-range">💧 ${profile.moisture_min}% – ${profile.moisture_max}%</div>
@@ -248,13 +253,14 @@ function renderPlantProfileCards(selectedId) {
 }
 
 function selectPlantCard(profileId, cardEl) {
+    const id = parseInt(profileId, 10);
     // Deselect all, select clicked
     document.querySelectorAll('.plant-profile-card').forEach(c => c.classList.remove('selected'));
     cardEl.classList.add('selected');
-    plantModalSelectedProfileId = profileId;
+    plantModalSelectedProfileId = id;
 
     // Enable save only if selection has changed from current
-    document.getElementById('savePlantBtn').disabled = (profileId === plantModalCurrentProfileId);
+    document.getElementById('savePlantBtn').disabled = (id === plantModalCurrentProfileId);
 }
 
 async function savePlantProfile() {
