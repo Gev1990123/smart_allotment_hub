@@ -65,8 +65,8 @@ def on_connect(client, userdata, flags, rc):
     else:
         logger.error(f"Connection failed with code {rc}")
 
-def validate_sensor(conn, device_id: int, sensor_id: str, sensor_type: str) -> bool:
-    """Check if sensor is registered and active for this device"""
+def validate_sensor(conn, device_id: int, sensor_id: str, sensor_type: str) -> int | None:
+    """Check if sensor is registered and active. Returns sensor DB id or None."""
     cur = conn.cursor()
     
     cur.execute("""
@@ -82,15 +82,15 @@ def validate_sensor(conn, device_id: int, sensor_id: str, sensor_type: str) -> b
     
     if not result:
         logger.warning(f"Sensor {sensor_id} ({sensor_type}) not registered for device_id={device_id}")
-        return False
+        return None
     
     sensor_db_id, active = result
     
     if not active:
         logger.warning(f"Sensor {sensor_id} is registered but inactive for device_id={device_id}")
-        return False
+        return None
     
-    return True 
+    return sensor_db_id
 
 def activate_device_if_needed(conn, uid: str) -> int | None:
     cur = conn.cursor()
@@ -123,6 +123,86 @@ def activate_device_if_needed(conn, uid: str) -> int | None:
     conn.commit()
     cur.close()
     return device_db_id
+
+def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
+    """
+    Compare a moisture reading against the sensor's assigned plant profile.
+    Falls back to 'General' if no profile is assigned.
+
+    Responsibilities:
+      - Determine status: ok / too_dry / too_wet
+      - Log every reading to moisture_events
+      - Emit a warning log if out of range (pump trigger is logic.py's job)
+
+    NOTE: Does NOT commit — caller (on_message) commits once at the end.
+    """
+    cur = conn.cursor()
+
+    # Get thresholds — assigned profile wins, General is the fallback
+    cur.execute("""
+        SELECT
+            COALESCE(pp.name,         gp.name)          AS profile_name,
+            COALESCE(pp.moisture_min, gp.moisture_min)  AS moisture_min,
+            COALESCE(pp.moisture_max, gp.moisture_max)  AS moisture_max
+        FROM sensors s
+        LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
+        LEFT JOIN plant_profiles pp  ON pp.id = spa.plant_profile_id
+        LEFT JOIN plant_profiles gp  ON gp.name = 'General'
+        WHERE s.id = %s;
+    """, (sensor_db_id,))
+
+    row = cur.fetchone()
+    if not row:
+        logger.warning(f"Could not resolve plant profile for sensor_id={sensor_db_id}")
+        cur.close()
+        return
+
+    profile_name, moisture_min, moisture_max = row
+    moisture_min = float(moisture_min)
+    moisture_max = float(moisture_max)
+
+    # Determine status
+    if value < moisture_min:
+        status = "too_dry"
+    elif value > moisture_max:
+        status = "too_wet"
+    else:
+        status = "ok"
+
+    if status == "too_dry":
+        logger.warning(
+            f"💧 sensor_id={sensor_db_id} TOO DRY: {value}% < {moisture_min}% [{profile_name}]"
+        )
+    elif status == "too_wet":
+        logger.warning(
+            f"🌊 sensor_id={sensor_db_id} TOO WET: {value}% > {moisture_max}% [{profile_name}]"
+        )
+    else:
+        logger.info(
+            f"🌱 sensor_id={sensor_db_id} OK: {value}% within {moisture_min}–{moisture_max}% [{profile_name}]"
+        )
+
+    # Log to moisture_events (no pump trigger — that's logic.py's responsibility)
+    cur.execute("""
+        INSERT INTO moisture_events (
+            sensor_id, device_id, site_id,
+            reading, expected_min, expected_max,
+            status, action_taken, last_action_at
+        )
+        VALUES (
+            %s, %s,
+            (SELECT site_id FROM devices WHERE id = %s),
+            %s, %s, %s,
+            %s, NULL, NULL
+        );
+    """, (
+        sensor_db_id, device_db_id, device_db_id,
+        value, moisture_min, moisture_max,
+        status
+    ))
+
+    cur.close()
+
 
 def on_message(client, userdata, msg):
 
@@ -169,9 +249,10 @@ def on_message(client, userdata, msg):
             sensor_type = sensor['type']
 
             # Validate sensor registration
-            if not validate_sensor(conn, device_db_id, sensor_id, sensor_type):
+            sensor_db_id = validate_sensor(conn, device_db_id, sensor_id, sensor_type)
+            if not sensor_db_id:
                 rejected_sensors.append(f"{sensor_id} ({sensor_type})")
-                continue  # Skip this sensor
+                continue
             
             # Determine unit based on sensor type
             if sensor['type'] == 'moisture':
@@ -225,7 +306,10 @@ def on_message(client, userdata, msg):
                 AND sensor_type = %s
             """, (sensor['value'], current_time, device_db_id, sensor_id, sensor_type))
             
-            valid_sensors.append(sensor_id)                  
+            if sensor['type'] == 'moisture':
+                evaluate_moisture(conn, sensor_db_id, device_db_id, float(sensor['value']))
+            
+            valid_sensors.append(sensor_id)                 
         
         conn.commit()
         cur.close()
