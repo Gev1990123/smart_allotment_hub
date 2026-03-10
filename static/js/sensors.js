@@ -205,10 +205,13 @@ function renderSensorRow(sensor) {
 // PLANT PROFILE MODAL
 // ============================================
 function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
-    // Coerce to int or null — guards against the string "null" arriving from inline HTML
-    const profileId = (currentProfileId === null || currentProfileId === 'null' || currentProfileId === undefined)
-        ? null
-        : parseInt(currentProfileId, 10);
+    // Normalize profile id (number or null)
+    const profileId =
+        (currentProfileId === null ||
+         currentProfileId === undefined ||
+         currentProfileId === 'null')
+            ? null
+            : parseInt(currentProfileId, 10);
 
     plantModalSensorId = sensorId;
     plantModalSelectedProfileId = profileId;
@@ -218,18 +221,22 @@ function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
     document.getElementById('plantModalDeviceUid').textContent = deviceUid;
     document.getElementById('plantModalError').style.display = 'none';
     document.getElementById('plantModalSuccess').style.display = 'none';
+
+    // Disable Save until user changes selection
     document.getElementById('savePlantBtn').disabled = true;
 
     // Show current assignment strip if one exists
     const currentStrip = document.getElementById('currentAssignment');
-    if (currentProfileId) {
-        const profile = allPlantProfiles.find(p => p.id === currentProfileId);
-        document.getElementById('currentAssignmentName').textContent = profile ? profile.name : 'Unknown';
+    if (profileId !== null) {
+        const profile = allPlantProfiles.find(p => Number(p.id) === profileId);
+        document.getElementById('currentAssignmentName').textContent =
+            profile ? profile.name : 'Unknown';
         currentStrip.style.display = 'flex';
     } else {
         currentStrip.style.display = 'none';
     }
 
+    // Render cards and open modal
     renderPlantProfileCards();
     document.getElementById('plantModal').style.display = 'block';
 }
@@ -237,30 +244,41 @@ function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
 function renderPlantProfileCards() {
     const grid = document.getElementById('plantProfileCards');
 
-    if (!allPlantProfiles.length) {
-        grid.innerHTML = '<div style="color:#999; text-align:center; padding:20px; grid-column:span 2;">No profiles available.</div>';
+    if (!allPlantProfiles || !allPlantProfiles.length) {
+        grid.innerHTML = `
+            <div style="color:#999; text-align:center; padding:20px; grid-column:span 2;">
+                No profiles available.
+            </div>
+        `;
         return;
     }
 
-    grid.innerHTML = allPlantProfiles.map(profile => `
-        <div class="plant-profile-card ${plantModalSelectedProfileId === profile.id ? 'selected' : ''}"
-             onclick="selectPlantCard(${profile.id}, this)">
-            <div class="plant-card-name">${profile.name}</div>
-            <div class="plant-card-range">💧 ${profile.moisture_min}% – ${profile.moisture_max}%</div>
-            <div class="plant-card-desc">${profile.description || ''}</div>
-        </div>
-    `).join('');
+    grid.innerHTML = allPlantProfiles.map(profile => {
+        const id = Number(profile.id);
+        const isSelected = plantModalSelectedProfileId === id;
+        return `
+            <div class="plant-profile-card ${isSelected ? 'selected' : ''}"
+                 onclick="selectPlantCard(${id}, this)">
+                <div class="plant-card-name">${profile.name}</div>
+                <div class="plant-card-range">💧 ${profile.moisture_min}% – ${profile.moisture_max}%</div>
+                <div class="plant-card-desc">${profile.description || ''}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 function selectPlantCard(profileId, cardEl) {
     const id = parseInt(profileId, 10);
     // Deselect all, select clicked
-    document.querySelectorAll('.plant-profile-card').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.plant-profile-card')
+        .forEach(c => c.classList.remove('selected'));
     cardEl.classList.add('selected');
+
     plantModalSelectedProfileId = id;
 
     // Enable save only if selection has changed from current
-    document.getElementById('savePlantBtn').disabled = (id === plantModalCurrentProfileId);
+    document.getElementById('savePlantBtn').disabled =
+        (plantModalCurrentProfileId === id);
 }
 
 async function savePlantProfile() {
@@ -359,7 +377,7 @@ function closePlantModal() {
 }
 
 // ============================================
-// REGISTER SENSOR MODAL (unchanged)
+// REGISTER SENSOR MODAL
 // ============================================
 async function openAddSensorModal() {
     document.getElementById('sensorModal').style.display = 'block';
@@ -456,7 +474,7 @@ document.getElementById('sensorForm').addEventListener('submit', async function 
 });
 
 // ============================================
-// SENSOR ACTIONS (unchanged)
+// SENSOR ACTIONS
 // ============================================
 async function toggleSensorStatus(sensorId, activate) {
     const action = activate ? 'activate' : 'deactivate';
