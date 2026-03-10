@@ -3,11 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Sensors - Smart Allotment</title>
-
-    <!-- CSS -->
     <link rel="stylesheet" href="/static/css/styles.css">
-    
-    <!-- Shared Scripts -->
     <script src="/static/js/scripts.js"></script>
 </head>
 
@@ -17,7 +13,6 @@
     <h1>🌱 Smart Allotment - Sensors</h1>
 </header>
 
-<!-- NAVIGATION -->
 <nav>
     <div class="nav-links">
         <a href="/">📊 Dashboard</a>
@@ -36,7 +31,7 @@
             {% endif %}
         </span>
         <button onclick="logout()" class="btn-secondary">Logout</button>
-    </div>  
+    </div>
 </nav>
 
 <main>
@@ -47,8 +42,6 @@
             <h2 style="margin: 0; font-size: 20px;">🔧 Sensor Management</h2>
             <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">Register and manage sensors for your devices</p>
         </div>
-        
-        <!-- Filter Controls -->
         <div style="display: flex; gap: 10px; align-items: center;">
             <select id="deviceFilter" onchange="filterSensors()">
                 <option value="">All Devices</option>
@@ -59,7 +52,6 @@
                 <option value="inactive">Inactive Only</option>
             </select>
         </div>
-        
         {% if user.role == 'sys_admin' %}
         <button onclick="openAddSensorModal()" style="margin-right: 10px;">+ Register Sensor</button>
         {% endif %}
@@ -92,17 +84,13 @@
 
     <!-- Sensors Table -->
     <div class="latest-box">
-        <div id="sensorsTableContainer">
-            <!-- Table will be loaded here -->
-        </div>
+        <div id="sensorsTableContainer"></div>
     </div>
 
-    <!-- Loading State -->
     <div id="loadingState" class="latest-box" style="text-align: center; display: none;">
         <p>Loading sensors...</p>
     </div>
 
-    <!-- Empty State -->
     <div id="emptyState" class="latest-box" style="text-align: center; display: none;">
         <h3>No Sensors Found</h3>
         <p>No sensors have been registered yet.</p>
@@ -111,7 +99,9 @@
         {% endif %}
     </div>
 
-    <!-- Add/Edit Sensor Modal -->
+    <!-- ================================================
+         REGISTER SENSOR MODAL
+    ================================================ -->
     <div id="sensorModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -121,7 +111,6 @@
             <div class="modal-body">
                 <form id="sensorForm">
                     <input type="hidden" id="sensorId" name="sensor_id">
-                    
                     <div class="form-group">
                         <label for="sensorDevice">Device <span style="color: #e53935;">*</span></label>
                         <select id="sensorDevice" name="device_id" required>
@@ -129,16 +118,14 @@
                         </select>
                         <small>Select the device this sensor is attached to</small>
                     </div>
-                    
                     <div class="form-group">
                         <label for="sensorName">Sensor ID/Name <span style="color: #e53935;">*</span></label>
-                        <input type="text" id="sensorName" name="sensor_name" required 
+                        <input type="text" id="sensorName" name="sensor_name" required
                                placeholder="e.g., soil-sensor-001"
                                pattern="[A-Za-z0-9\-_]+"
                                title="Only letters, numbers, hyphens, and underscores allowed">
                         <small>Unique identifier for this sensor (must match hardware ID)</small>
                     </div>
-                    
                     <div class="form-group">
                         <label for="sensorType">Sensor Type <span style="color: #e53935;">*</span></label>
                         <select id="sensorType" name="sensor_type" required onchange="updateUnitField()">
@@ -149,25 +136,21 @@
                         </select>
                         <small>Type of measurement this sensor provides</small>
                     </div>
-                    
                     <div class="form-group">
                         <label for="sensorUnit">Unit</label>
-                        <input type="text" id="sensorUnit" name="unit" 
+                        <input type="text" id="sensorUnit" name="unit"
                                placeholder="Auto-detected based on type">
                         <small>Measurement unit (automatically filled for common types)</small>
                     </div>
-                    
                     <div class="form-group">
                         <label for="sensorNotes">Notes</label>
-                        <textarea id="sensorNotes" name="notes" rows="3" 
+                        <textarea id="sensorNotes" name="notes" rows="3"
                                   placeholder="e.g., Located in bed 1, north side"
                                   style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 14px; box-sizing: border-box;"></textarea>
                         <small>Optional: Location, calibration info, or other details</small>
                     </div>
-                    
                     <div id="formError" class="form-error" style="display: none;"></div>
                     <div id="formSuccess" class="form-success" style="display: none;"></div>
-                    
                     <div class="modal-actions">
                         <button type="button" class="btn-secondary" onclick="closeSensorModal()">Cancel</button>
                         <button type="submit" id="submitBtn">Register Sensor</button>
@@ -177,7 +160,58 @@
         </div>
     </div>
 
-    <!-- Confirm Delete Modal -->
+    <!-- ================================================
+         PLANT PROFILE ASSIGNMENT MODAL
+    ================================================ -->
+    <div id="plantModal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>🌱 Assign Plant Profile</h3>
+                <span class="modal-close" onclick="closePlantModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+
+                <!-- Which sensor we're editing -->
+                <div class="plant-modal-sensor-info">
+                    <span style="color: #666; font-size: 13px;">Sensor:</span>
+                    <span class="device-uid" id="plantModalSensorName">--</span>
+                    <span style="color: #666; font-size: 13px;">on</span>
+                    <span class="device-uid" id="plantModalDeviceUid">--</span>
+                </div>
+
+                <p style="color: #555; font-size: 14px; margin: 14px 0 16px 0;">
+                    Select the plant growing near this moisture sensor. Thresholds will be used
+                    to determine if the soil is <strong>too dry</strong> or <strong>too wet</strong>.
+                </p>
+
+                <!-- Profile cards grid -->
+                <div id="plantProfileCards" class="plant-profile-grid">
+                    <div style="color: #999; text-align: center; padding: 20px; grid-column: span 2;">
+                        Loading profiles...
+                    </div>
+                </div>
+
+                <!-- Current assignment strip -->
+                <div id="currentAssignment" class="current-assignment" style="display: none;">
+                    <span>Currently assigned:</span>
+                    <strong id="currentAssignmentName"></strong>
+                    <button class="btn-remove-plant" onclick="removePlantProfile()">✕ Remove</button>
+                </div>
+
+                <div id="plantModalError" class="form-error" style="display: none;"></div>
+                <div id="plantModalSuccess" class="form-success" style="display: none;"></div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closePlantModal()">Cancel</button>
+                    <button type="button" id="savePlantBtn" onclick="savePlantProfile()" disabled>Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================
+         CONFIRM DELETE MODAL (unchanged)
+    ================================================ -->
     <div id="confirmDeleteModal" class="modal">
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
@@ -187,7 +221,8 @@
             <div class="modal-body">
                 <p id="deleteMessage">Are you sure you want to delete this sensor?</p>
                 <p style="color: #e53935; font-size: 14px; margin-top: 15px;">
-                    <strong>⚠️ Warning:</strong> This action cannot be undone. Historical data will remain but the sensor will no longer be able to submit new readings.
+                    <strong>⚠️ Warning:</strong> This action cannot be undone. Historical data will remain
+                    but the sensor will no longer be able to submit new readings.
                 </p>
                 <div class="modal-actions" style="margin-top: 20px;">
                     <button type="button" class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>

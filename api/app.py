@@ -114,6 +114,9 @@ class PumpCommand(BaseModel):
     action: str  # "on" or "off"
     seconds: int | None = None    # Required when action == "run"
 
+class SensorPlantAssign(BaseModel):
+    plant_profile_id: int
+
 # -------------------------
 # Authentication Dependency
 # -------------------------
@@ -1021,8 +1024,13 @@ def register_site(site: SiteCreate, admin: Dict = Depends(require_sys_admin)):
 # ---------------------------------------------------------
 
 @app.get("/api/sensors/list")
-async def list_sensors(current_user: Dict = Depends(get_current_user)):
-    """List sensors — sys_admin sees all, regular users see only their sites' sensors"""
+async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
+    """
+    List sensors — sys_admin sees all, regular users see only their sites' sensors.
+    CHANGED: LEFT JOINs sensor_plant_assignments and plant_profiles so each row
+    includes plant_profile_id and plant_profile_name for the frontend badge.
+    All existing fields and their positions are unchanged.
+    """
     conn = get_connection()
     cur = conn.cursor()
     
@@ -1034,11 +1042,15 @@ async def list_sensors(current_user: Dict = Depends(get_current_user)):
             # sys_admin — no site filter
             cur.execute("""
                 SELECT 
-                    s.id, s.device_id, d.uid as device_uid, s.sensor_name, 
+                    s.id, s.device_id, d.uid AS device_uid, s.sensor_name, 
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
-                    s.notes, s.created_at
+                    s.notes, s.created_at,
+                    spa.plant_profile_id,
+                    pp.name AS plant_profile_name
                 FROM sensors s
                 JOIN devices d ON s.device_id = d.id
+                LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
+                LEFT JOIN plant_profiles pp ON pp.id = spa.plant_profile_id
                 ORDER BY d.uid, s.sensor_name;
             """)
         else:
@@ -1046,11 +1058,15 @@ async def list_sensors(current_user: Dict = Depends(get_current_user)):
             placeholders = ','.join(['%s'] * len(allowed_sites))
             cur.execute(f"""
                 SELECT 
-                    s.id, s.device_id, d.uid as device_uid, s.sensor_name, 
+                    s.id, s.device_id, d.uid AS device_uid, s.sensor_name, 
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
-                    s.notes, s.created_at
+                    s.notes, s.created_at,
+                    spa.plant_profile_id,
+                    pp.name AS plant_profile_name
                 FROM sensors s
                 JOIN devices d ON s.device_id = d.id
+                LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
+                LEFT JOIN plant_profiles pp ON pp.id = spa.plant_profile_id
                 WHERE d.site_id IN ({placeholders})
                 ORDER BY d.uid, s.sensor_name;
             """, allowed_sites)
@@ -1070,7 +1086,9 @@ async def list_sensors(current_user: Dict = Depends(get_current_user)):
                 "last_value": float(row[7]) if row[7] is not None else None,
                 "last_seen": row[8].isoformat() if row[8] else None,
                 "notes": row[9],
-                "created_at": row[10].isoformat() if row[10] else None
+                "created_at": row[10].isoformat() if row[10] else None,
+                "plant_profile_id": row[11],
+                "plant_profile_name": row[12],
             })
         
         cur.close()
