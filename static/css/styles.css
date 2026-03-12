@@ -1005,6 +1005,9 @@ button:disabled {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     animation: slideDown 0.3s;
     position: relative;  
+    max-height: 90vh;
+    display: flex; 
+    flex-direction: column; 
 }
 
 @keyframes slideDown {
@@ -1041,6 +1044,8 @@ button:disabled {
 
 .modal-body {
     padding: 25px;
+    overflow-y: auto;  
+    flex: 1; 
 }
 
 .modal-actions {
@@ -1250,7 +1255,7 @@ button:disabled {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     margin-bottom: 14px;
-    max-height: 300px;
+    max-height: 180px;
     overflow-y: auto;
     padding-right: 2px;
 }
