@@ -986,6 +986,9 @@ button:disabled {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
     animation: fadeIn 0.2s;
+    overflow-y: auto; 
+    padding: 20px 0;  
+    box-sizing: border-box; 
 }
 
 @keyframes fadeIn {
@@ -995,12 +998,13 @@ button:disabled {
 
 .modal-content {
     background-color: #fff;
-    margin: 5% auto;
+    margin: auto;
     border-radius: 12px;
     width: 90%;
     max-width: 500px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     animation: slideDown 0.3s;
+    position: relative;  
 }
 
 @keyframes slideDown {
