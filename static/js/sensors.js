@@ -12,6 +12,10 @@ let plantModalSensorId = null;
 let plantModalSelectedProfileId = null;
 let plantModalCurrentProfileId = null;
 
+// Zone modal state
+let zoneModalSensorId = null;
+let zoneModalOriginalZone = null;
+
 // ============================================
 // PAGE INITIALIZATION
 // ============================================
@@ -133,6 +137,7 @@ function renderSensorsTable(sensors) {
                     <th>Last Value</th>
                     <th>Last Seen</th>
                     <th>Plant Profile</th>
+                    <th>Zone</th>
                     <th>Notes</th>
                     <th>Actions</th>
                 </tr>
@@ -175,6 +180,16 @@ function renderSensorRow(sensor) {
            </button>`
         : '';
 
+    const zoneName = sensor.zone_name || null;
+    const zoneCell = zoneName
+        ? `<span class="plant-badge" style="background:#e3f2fd; color:#1565c0; border-color:#90caf9;">📍 ${zoneName}</span>`
+        : `<span class="plant-badge unassigned">No zone</span>`;
+
+    const zoneBtn = `<button class="btn-small" style="background:#1565c0;"
+        onclick="openZoneModal(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}', ${zoneName ? `'${zoneName}'` : 'null'})">
+        📍 Zone
+    </button>`;
+
     return `
         <tr class="${sensor.active ? '' : 'inactive-row'}">
             <td data-label="Device"><span class="device-uid">${sensor.device_uid}</span></td>
@@ -185,6 +200,7 @@ function renderSensorRow(sensor) {
             <td data-label="Last Value">${lastValue}</td>
             <td data-label="Last Seen">${lastSeen}</td>
             <td data-label="Plant Profile">${plantCell}</td>
+            <td data-label="Zone">${zoneCell}</td>
             <td data-label="Notes" style="max-width: 180px; overflow: hidden; text-overflow: ellipsis;" 
                 title="${sensor.notes || ''}">${notes}</td>
             <td data-label="Actions">
@@ -194,6 +210,7 @@ function renderSensorRow(sensor) {
                         : `<button class="btn-small" onclick="toggleSensorStatus(${sensor.id}, true)">Activate</button>`
                     }
                     ${plantBtn}
+                    ${zoneBtn}
                     <button class="btn-small btn-danger" onclick="deleteSensor(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}')">Delete</button>
                 </div>
             </td>
@@ -450,7 +467,14 @@ document.getElementById('sensorForm').addEventListener('submit', async function 
         const response = await fetch('/api/sensors/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_uid: deviceUid, sensor_name: sensorName, sensor_type: sensorType, unit, notes })
+                        body: JSON.stringify({ 
+                device_uid: deviceUid, 
+                sensor_name: sensorName, 
+                sensor_type: sensorType, 
+                unit, 
+                notes,
+                zone_name: document.getElementById('sensorZone').value.trim() || null
+            })    
         });
 
         const data = await response.json();
@@ -519,9 +543,79 @@ function closeDeleteModal() {
     sensorToDelete = null;
 }
 
+// ============================================
+// ZONE MODAL
+// ============================================
+function openZoneModal(sensorId, sensorName, deviceUid, currentZone) {
+    zoneModalSensorId = sensorId;
+    zoneModalOriginalZone = currentZone || null;
+
+    document.getElementById('zoneModalSensorName').textContent = sensorName;
+    document.getElementById('zoneModalDeviceUid').textContent = deviceUid;
+    document.getElementById('zoneNameInput').value = currentZone || '';
+    document.getElementById('zoneModalError').style.display = 'none';
+    document.getElementById('zoneModalSuccess').style.display = 'none';
+    document.getElementById('saveZoneBtn').disabled = true;
+
+    document.getElementById('zoneModal').classList.add('is-open');
+}
+
+function onZoneInputChange() {
+    const current = document.getElementById('zoneNameInput').value.trim() || null;
+    // Enable save if value has changed from original
+    document.getElementById('saveZoneBtn').disabled = (current === zoneModalOriginalZone);
+}
+
+async function saveZone() {
+    const zoneName = document.getElementById('zoneNameInput').value.trim() || null;
+    const saveBtn = document.getElementById('saveZoneBtn');
+    const errorEl = document.getElementById('zoneModalError');
+    const successEl = document.getElementById('zoneModalSuccess');
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/sensors/${zoneModalSensorId}/zone`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zone_name: zoneName })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            successEl.textContent = zoneName
+                ? `✓ Assigned to zone '${zoneName}'`
+                : '✓ Zone cleared';
+            successEl.style.display = 'block';
+            setTimeout(() => { closeZoneModal(); loadSensors(); }, 1200);
+        } else {
+            errorEl.textContent = data.detail || 'Failed to save zone';
+            errorEl.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    } catch (e) {
+        errorEl.textContent = 'Network error. Please try again.';
+        errorEl.style.display = 'block';
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save';
+    }
+}
+
+function closeZoneModal() {
+    document.getElementById('zoneModal').classList.remove('is-open');
+    zoneModalSensorId = null;
+    zoneModalOriginalZone = null;
+}
+
 // Close modals when clicking outside
 window.onclick = function (event) {
     if (event.target === document.getElementById('sensorModal')) closeSensorModal();
     if (event.target === document.getElementById('confirmDeleteModal')) closeDeleteModal();
     if (event.target === document.getElementById('plantModal')) closePlantModal();
+    if (event.target === document.getElementById('zoneModal')) closeZoneModal();
 };

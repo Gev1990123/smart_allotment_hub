@@ -143,6 +143,14 @@
                         <small>Measurement unit (automatically filled for common types)</small>
                     </div>
                     <div class="form-group">
+                        <label for="sensorZone">Zone Name</label>
+                                                <input type="text" id="sensorZone" name="zone_name"
+                               placeholder="e.g., bed-a, raised-bed-north"
+                               pattern="[A-Za-z0-9\-_]+"
+                               title="Only letters, numbers, hyphens, and underscores allowed">
+                        <small>Optional: Group sensors in the same bed/zone for averaged moisture readings</small>
+                    </div>
+                    <div class="form-group">
                         <label for="sensorNotes">Notes</label>
                         <textarea id="sensorNotes" name="notes" rows="3"
                                   placeholder="e.g., Located in bed 1, north side"
@@ -232,6 +240,49 @@
         </div>
     </div>
 
+    <!-- ================================================
+     ZONE ASSIGNMENT MODAL
+    ================================================ -->
+    <div id="zoneModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📍 Assign Zone</h3>
+                <span class="modal-close" onclick="closeZoneModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="plant-modal-sensor-info">
+                    <span style="color: #666; font-size: 13px;">Sensor:</span>
+                    <span class="device-uid" id="zoneModalSensorName">--</span>
+                    <span style="color: #666; font-size: 13px;">on</span>
+                    <span class="device-uid" id="zoneModalDeviceUid">--</span>
+                </div>
+
+                <p style="color: #555; font-size: 14px; margin: 14px 0 16px 0;">
+                    Sensors in the same zone will have their moisture readings <strong>averaged</strong>
+                    before watering decisions are made. All sensors in a zone should share the same
+                    plant profile.
+                </p>
+
+                <div class="form-group">
+                    <label for="zoneNameInput">Zone Name</label>
+                    <input type="text" id="zoneNameInput"
+                        placeholder="e.g., bed-a, raised-bed-north"
+                        pattern="[A-Za-z0-9\-_]+"
+                        title="Only letters, numbers, hyphens, and underscores allowed"
+                        oninput="onZoneInputChange()">
+                    <small>Leave blank to remove this sensor from its current zone</small>
+                </div>
+
+                <div id="zoneModalError" class="form-error" style="display: none;"></div>
+                <div id="zoneModalSuccess" class="form-success" style="display: none;"></div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeZoneModal()">Cancel</button>
+                    <button type="button" id="saveZoneBtn" onclick="saveZone()" disabled>Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </main>
 
 <script src="/static/js/sensors.js"></script>

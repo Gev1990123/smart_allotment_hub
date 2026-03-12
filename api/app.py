@@ -96,6 +96,7 @@ class SensorRegister(BaseModel):
     sensor_type: str
     unit: str | None = None
     notes: str | None = None
+    zone_name: str | None = None
 
 class SensorInfo(BaseModel):
     id: int
@@ -1164,9 +1165,9 @@ async def register_sensor(
         cur.execute("""
             INSERT INTO sensors (
                 device_id, sensor_name, sensor_type, unit, 
-                active, notes, created_at, registered_by
+                active, notes, zone_name, created_at, registered_by
             )
-            VALUES (%s, %s, %s, %s, TRUE, %s, NOW(), %s)
+            VALUES (%s, %s, %s, %s, TRUE, %s, %s, NOW(), %s)
             RETURNING id, sensor_name, sensor_type, unit, active, created_at;
         """, (
             device_id, 
@@ -1174,6 +1175,7 @@ async def register_sensor(
             sensor_data.sensor_type, 
             unit, 
             sensor_data.notes,
+            sensor_data.zone_name,
             current_user["user_id"]
         ))
         
