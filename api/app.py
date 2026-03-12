@@ -117,6 +117,9 @@ class PumpCommand(BaseModel):
 class SensorPlantAssign(BaseModel):
     plant_profile_id: int
 
+class SensorZoneAssign(BaseModel):
+    zone_name: str | None = None
+
 # -------------------------
 # Authentication Dependency
 # -------------------------
@@ -1044,7 +1047,7 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                 SELECT 
                     s.id, s.device_id, d.uid AS device_uid, s.sensor_name, 
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
-                    s.notes, s.created_at,
+                    s.notes, s.created_at, s.zone_name,  
                     spa.plant_profile_id,
                     pp.name AS plant_profile_name
                 FROM sensors s
@@ -1060,7 +1063,7 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                 SELECT 
                     s.id, s.device_id, d.uid AS device_uid, s.sensor_name, 
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen, 
-                    s.notes, s.created_at,
+                    s.notes, s.created_at, s.zone_name,
                     spa.plant_profile_id,
                     pp.name AS plant_profile_name
                 FROM sensors s
@@ -1087,8 +1090,9 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                 "last_seen": row[8].isoformat() if row[8] else None,
                 "notes": row[9],
                 "created_at": row[10].isoformat() if row[10] else None,
-                "plant_profile_id": row[11],
-                "plant_profile_name": row[12],
+                "zone_name": row[11],
+                "plant_profile_id": row[12],
+                "plant_profile_name": row[13],
             })
         
         cur.close()
@@ -1651,6 +1655,39 @@ async def sensor_moisture_events(
              "action_taken": r[4], "created_at": r[5].isoformat()}
             for r in rows
         ]}
+    finally:
+        conn.close()
+
+# ---------------------------------------------------------
+# ZONES
+# ---------------------------------------------------------        
+
+@app.put("/api/sensors/{sensor_id}/zone")
+async def assign_sensor_zone(
+    sensor_id: int,
+    body: SensorZoneAssign,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Assign or clear a zone name on a sensor"""
+    conn = get_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT s.id, d.uid FROM sensors s
+            JOIN devices d ON s.device_id = d.id
+            WHERE s.id = %s;
+        """, (sensor_id,))
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Sensor not found")
+        if not auth.user_can_access_device(current_user["user_id"], row[1]):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        cur.execute("""
+            UPDATE sensors SET zone_name = %s WHERE id = %s;
+        """, (body.zone_name, sensor_id))
+        conn.commit()
+        return {"message": f"Zone set to '{body.zone_name}'" if body.zone_name else "Zone cleared"}
     finally:
         conn.close()
 

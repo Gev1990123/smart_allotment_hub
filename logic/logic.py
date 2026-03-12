@@ -3,6 +3,7 @@ import time
 import requests
 import json
 import paho.mqtt.client as mqtt
+from itertools import groupby
 from utils.logging import setup_logger
 
 # -------------------------
@@ -75,16 +76,12 @@ def get_devices(headers: dict) -> list[str]:
 
 def get_moisture_statuses(device_uid: str, headers: dict) -> list[dict]:
     """
-    Fetch per-sensor moisture status for a device.
-    Each status includes:
-      - sensor_id, value, unit
-      - status: 'ok' | 'too_dry' | 'too_wet'
-      - profile: plant profile name (e.g. 'Tomato', 'General')
-      - moisture_min / moisture_max from that profile
-
-    Falls back to 'General' profile if no profile is assigned to the sensor.
-    Returns empty list on error.
+    Fetch per-sensor moisture status, then group by zone_name.
+    Sensors in the same zone are averaged before thresholds are applied.
+    Sensors with no zone keep individual evaluation (existing behaviour).
+    Returns one status dict per logical unit (zone or lone sensor).
     """
+
     try:
         # Get all sensors for this device
         resp = requests.get(f"{API_URL}/api/sensors/list", headers=headers, timeout=10)
@@ -103,7 +100,8 @@ def get_moisture_statuses(device_uid: str, headers: dict) -> list[dict]:
             return []
 
         # Fetch status for each sensor individually
-        statuses = []
+        raw_statuses = []
+        
         for sensor in moisture_sensors:
             try:
                 resp = requests.get(
@@ -112,13 +110,92 @@ def get_moisture_statuses(device_uid: str, headers: dict) -> list[dict]:
                     timeout=10
                 )
                 if resp.status_code == 200:
-                    statuses.append(resp.json())
+                    data = resp.json()
+                    data["zone_name"] = sensor.get("zone_name")
+                    data["sensor_name"] = sensor["sensor_name"]
+                    raw_statuses.append(data)
                 else:
                     logger.warning(f"moisture-status returned {resp.status_code} for sensor {sensor['id']}")
             except requests.RequestException as e:
                 logger.error(f"Failed to fetch status for sensor {sensor['id']}: {e}")
 
-        return statuses
+        # ---- Zone averaging ------------------------------------------------
+        # Split into zoned and unzoned sensors
+        zoned   = [s for s in raw_statuses if s.get("zone_name")]
+        unzoned = [s for s in raw_statuses if not s.get("zone_name")]
+
+        results = list(unzoned) # unzoned sensors evaluated individually as before
+
+                # Group zoned sensors by zone_name
+        zoned_sorted = sorted(zoned, key=lambda s: s["zone_name"])
+        for zone_name, group in groupby(zoned_sorted, key=lambda s: s["zone_name"]):
+            members = list(group)
+            values  = [s["value"] for s in members if s.get("value") is not None]
+
+            if not values:
+                continue
+
+            avg_value = sum(values) / len(values)
+
+            profiles = set(s["profile"] for s in members)
+            if len(profiles) == 1:
+                representative = members[0]
+                moisture_min = representative["moisture_min"]
+                moisture_max = representative["moisture_max"]
+                profile_name = representative["profile"]
+            else:
+                logger.warning(
+                    f"Zone '{zone_name}' has mixed profiles: {profiles}. "
+                    f"Falling back to General profile."
+                )
+                try:
+                    gp_resp = requests.get(
+                        f"{API_URL}/api/plant-profiles", headers=headers, timeout=10
+                    )
+                    gp_resp.raise_for_status()
+                    general = next(
+                        (p for p in gp_resp.json().get("plant_profiles", []) if p["name"] == "General"),
+                        {"moisture_min": 30, "moisture_max": 70}  # hard fallback if DB unreachable
+                    )
+                    moisture_min = general["moisture_min"]
+                    moisture_max = general["moisture_max"]
+                    profile_name = "General (mixed zone fallback)"
+                except Exception as e:
+                    logger.error(f"Could not fetch General profile for zone '{zone_name}': {e}. Using hardcoded defaults.")
+                    moisture_min = 30
+                    moisture_max = 70
+                    profile_name = "General (hardcoded fallback)"
+
+            if avg_value < moisture_min:
+                zone_status = "too_dry"
+            elif avg_value > moisture_max:
+                zone_status = "too_wet"
+            else:
+                zone_status = "ok"
+
+            sensor_ids = [s["sensor_id"] for s in members]
+            sensor_names = [s["sensor_name"] for s in members]
+
+            logger.info(
+                f"  Zone '{zone_name}' [{profile_name}]: "
+                f"avg={avg_value:.1f}% (raw: {[round(v,1) for v in values]}) "
+                f"— status={zone_status} (range {moisture_min}–{moisture_max}%)"
+            )
+
+            results.append({
+                "sensor_id": sensor_ids,       # list so pump logic can log all
+                "sensor_name": f"zone:{zone_name}",
+                "value": round(avg_value, 2),
+                "unit": members[0].get("unit", "%"),
+                "status": zone_status,
+                "profile": profile_name,
+                "moisture_min": moisture_min,
+                "moisture_max": moisture_max,
+                "zone_name": zone_name,
+                "zone_members": sensor_names,
+            })
+
+        return results
 
     except requests.RequestException as e:
         logger.error(f"Failed to fetch sensor list for {device_uid}: {e}")

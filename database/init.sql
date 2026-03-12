@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS sensors (
     sensor_type VARCHAR(20) NOT NULL,
     active BOOLEAN DEFAULT FALSE,
     unit VARCHAR(10),
+    zone_name VARCHAR(100),
     last_value FLOAT,
     last_seen TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS sensors (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sensors_device_sensor ON sensors(device_id, sensor_name, active);
+CREATE INDEX IF NOT EXISTS idx_sensors_zone ON sensors(device_id, zone_name);
 
 -- -------------------------
 -- SENSOR DATA (readings)
