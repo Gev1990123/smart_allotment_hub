@@ -238,7 +238,7 @@ function openPlantModal(sensorId, sensorName, deviceUid, currentProfileId) {
 
     // Render cards and open modal
     renderPlantProfileCards();
-    document.getElementById('plantModal').style.display = 'block';
+    document.getElementById('plantModal').classList.add('is-open');
 }
 
 function renderPlantProfileCards() {
@@ -370,7 +370,7 @@ async function removePlantProfile() {
 }
 
 function closePlantModal() {
-    document.getElementById('plantModal').style.display = 'none';
+    document.getElementById('plantModal').classList.remove('is-open');
     plantModalSensorId = null;
     plantModalSelectedProfileId = null;
     plantModalCurrentProfileId = null;
@@ -380,7 +380,7 @@ function closePlantModal() {
 // REGISTER SENSOR MODAL
 // ============================================
 async function openAddSensorModal() {
-    document.getElementById('sensorModal').style.display = 'block';
+    document.getElementById('sensorModal').classList.add('is-open');
     document.getElementById('modalTitle').textContent = 'Register New Sensor';
     document.getElementById('sensorForm').reset();
     document.getElementById('sensorId').value = '';
@@ -424,7 +424,7 @@ function updateUnitField() {
 }
 
 function closeSensorModal() {
-    document.getElementById('sensorModal').style.display = 'none';
+    document.getElementById('sensorModal').classList.remove('is-open');
 }
 
 document.getElementById('sensorForm').addEventListener('submit', async function (e) {
@@ -495,7 +495,7 @@ function deleteSensor(sensorId, sensorName, deviceUid) {
     sensorToDelete = sensorId;
     document.getElementById('deleteMessage').textContent =
         `Are you sure you want to delete sensor "${sensorName}" from device "${deviceUid}"?`;
-    document.getElementById('confirmDeleteModal').style.display = 'block';
+    document.getElementById('confirmDeleteModal').classList.add('is-open'); 
 }
 
 async function confirmDelete() {
@@ -515,7 +515,7 @@ async function confirmDelete() {
 }
 
 function closeDeleteModal() {
-    document.getElementById('confirmDeleteModal').style.display = 'none';
+    document.getElementById('confirmDeleteModal').classList.remove('is-open'); 
     sensorToDelete = null;
 }
 
