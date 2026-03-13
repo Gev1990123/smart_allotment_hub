@@ -728,9 +728,12 @@ def node_health(device_uid: str, current_user: Dict = Depends(get_auth_user_or_t
             last_seen = last_seen.replace(tzinfo=timezone.utc)
 
         now = datetime.now(timezone.utc)
-        if last_seen and (now - last_seen) < timedelta(minutes=50):
-            return {"status": "online"}
-        return {"status": "offline"}
+        is_online = last_seen and (now - last_seen) < timedelta(minutes=50)
+
+        return {
+            "status": "online" if is_online else "offline",
+            "last_seen": last_seen.isoformat() if last_seen else None
+        }
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "details": str(e)})

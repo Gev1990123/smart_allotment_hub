@@ -131,20 +131,36 @@ async function loadDevices() {
         
         const devicesWithStatus = await Promise.all(
             data.devices.map(async (device) => {
-                try {
-                    const latestRes = await fetch(`/api/latest/${device.uid}`);
-                    const latestData = await latestRes.json();
-                    const isOnline = Array.isArray(latestData) && latestData.length > 0;
-                    return {
-                        ...device,
-                        isOnline,
-                        lastSeen: isOnline ? latestData[0].timestamp : null,
-                        sensorCount: isOnline ? latestData.length : 0,
-                        latestData
-                    };
-                } catch (e) {
-                    return { ...device, isOnline: false, lastSeen: null, sensorCount: 0, latestData: [] };
+                // Fetch health (online/offline + last_seen) and latest sensor
+                // readings in parallel for speed.
+                const [healthRes, latestRes] = await Promise.allSettled([
+                    fetch(`/api/node_health/${device.uid}`),
+                    fetch(`/api/latest/${device.uid}`)
+                ]);
+
+                // --- node_health → isOnline + lastSeen ---
+                let isOnline = false;
+                let lastSeen = null;
+                if (healthRes.status === 'fulfilled' && healthRes.value.ok) {
+                    const healthData = await healthRes.value.json();
+                    isOnline = healthData.status === 'online';
+                    // last_seen comes back as an ISO string from the API
+                    lastSeen = healthData.last_seen ?? null;
                 }
+
+                // --- /api/latest → sensor values ---
+                let latestData = [];
+                let sensorCount = 0;
+
+                if (latestRes.status === 'fulfilled' && latestRes.value.ok) {
+                    const ld = await latestRes.value.json();
+                    if (Array.isArray(ld)) {
+                        latestData = ld;
+                        sensorCount = ld.length;
+                    }
+                }
+
+                return { ...device, isOnline, lastSeen, sensorCount, latestData };
             })
         );
         
