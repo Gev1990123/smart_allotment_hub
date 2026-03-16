@@ -290,18 +290,29 @@ async function confirmDelete() {
 
 async function disableUser(userId) {
     if (!confirm("Are you sure you want to disable this user?")) return;
+    
     try {
         const res = await fetch(`/api/users/${userId}/disable`, {
             method: 'POST'
         });
+        
+        // Check if response is ok BEFORE parsing JSON
+        if (!res.ok) {
+            const errorText = await res.text(); // Get raw text for error
+            throw new Error(`HTTP ${res.status}: ${errorText.slice(0, 100)}`);
+        }
+        
+        // Only parse JSON if response is ok
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || 'Failed to disable user');
         alert(`User ${userId} disabled successfully.`);
         await loadUsers(); // Refresh table
+        
     } catch (e) {
+        console.error('Disable error:', e);
         alert(`Error: ${e.message}`);
     }
 }
+
 
 // ---- Helpers ----
 function showFormError(id, msg) {
