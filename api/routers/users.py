@@ -47,14 +47,52 @@ async def create_user(user_data: UserCreate, admin: Dict = Depends(require_sys_a
 @router.post("/{user_id}/disable")
 async def disable_user(user_id: int, admin: Dict = Depends(require_sys_admin_dep)):
     """Disable a user account — sys_admin only"""
-    conn = get_connection()
-    cur = conn.cursor()
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Check if user exists
+        cur.execute("SELECT username FROM users WHERE id = %s;", (user_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Use 'active' column, not 'is_active'
+        cur.execute("UPDATE users SET active = FALSE WHERE id = %s;", (user_id,))
+        conn.commit()
+        return {"message": f"User {user_id} disabled"}
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
-    cur.execute("UPDATE users SET is_active = FALSE WHERE id = %s;", (user_id,))
-    conn.commit()
-    conn.close()
-
-    return {"message": f"User {user_id} disabled"}
+@router.post("/{user_id}/enable")
+async def enable_user(user_id: int, admin: Dict = Depends(require_sys_admin_dep)):
+    """Enable a user account — sys_admin only"""
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        # Check if user exists
+        cur.execute("SELECT username FROM users WHERE id = %s;", (user_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Use 'active' column, not 'is_active'
+        cur.execute("UPDATE users SET active = TRUE WHERE id = %s;", (user_id,))
+        conn.commit()
+        return {"message": f"User {user_id} enabled"}
+        
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 @router.post("/{user_id}/assign-site/{site_id}")
 async def assign_user_to_site(user_id: int, site_id: int, admin: Dict = Depends(require_sys_admin_dep)):

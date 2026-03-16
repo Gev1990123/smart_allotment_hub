@@ -81,7 +81,10 @@ function renderUsers() {
             <td data-label="Full Name">${escHtml(u.full_name || '—')}</td>
             <td data-label="Email">${escHtml(u.email)}</td>
             <td data-label="Role">
-                <span class="role-badge ${u.role}">${u.role === 'sys_admin' ? 'Admin' : 'User'}</span>
+                <span class="role-badge ${u.role} ${!u.active ? 'inactive' : ''}">
+                    ${u.role === 'sys_admin' ? 'Admin' : 'User'}
+                    ${!u.active ? ' (Disabled)' : ''}
+                </span>
             </td>
             <td data-label="Sites">
                 <div class="site-chips">${siteHtml}</div>
@@ -91,7 +94,7 @@ function renderUsers() {
                     <button class="btn-small" onclick="openEditModal(${u.id})">✏️ Edit</button>
                     <button class="btn-small btn-secondary" onclick="openSiteModal(${u.id})">🏡 Sites</button>
                     <button class="btn-small btn-danger" onclick="openDeleteModal(${u.id})">🗑️</button>
-                    <button class="btn-small btn-warning" onclick="disableUser(${u.id})">🚫 Disable</button>
+                    <button class="btn-small ${u.active ? 'btn-warning' : 'btn-success'}" onclick="${u.active ? 'disableUser' : 'enableUser'}(${u.id})"> ${u.active ? '🚫 Disable' : '✅ Enable'}</button>
                 </div>
             </td>
         </tr>`;
@@ -309,6 +312,21 @@ async function disableUser(userId) {
         
     } catch (e) {
         console.error('Disable error:', e);
+        alert(`Error: ${e.message}`);
+    }
+}
+
+async function enableUser(userId) {
+    if (!confirm("Enable this user?")) return;
+    try {
+        const res = await fetch(`/api/users/${userId}/enable`, { method: 'POST' });
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`HTTP ${res.status}: ${errorText.slice(0, 100)}`);
+        }
+        alert("User enabled!");
+        await loadUsers();
+    } catch (e) {
         alert(`Error: ${e.message}`);
     }
 }
