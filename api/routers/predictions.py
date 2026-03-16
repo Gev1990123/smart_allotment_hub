@@ -5,6 +5,7 @@ import auth
 
 router = APIRouter(prefix="/api", tags=["predictions"])
 
+
 @router.get("/predictions/{device_uid}")
 async def device_predictions(
     device_uid: str,
@@ -26,7 +27,7 @@ async def device_predictions(
         raise HTTPException(status_code=403, detail="Access denied")
 
     try:
-        from api.routers.predictions import get_predictions
+        from predictions import get_predictions
         result = await get_predictions(
             device_uid=device_uid,
             lat=lat,
@@ -36,6 +37,7 @@ async def device_predictions(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/weather")
 async def weather_forecast(
@@ -48,7 +50,7 @@ async def weather_forecast(
     Useful for dashboard weather widgets independent of a specific device.
     """
     try:
-        from api.routers.predictions import fetch_weather_forecast
+        from predictions import fetch_weather_forecast
         data = await fetch_weather_forecast(lat, lon)
         return data
     except Exception as e:
