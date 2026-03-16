@@ -1174,7 +1174,7 @@ button:disabled {
    SENSORS TABLE
 --------------------------------------------------------- */
 .sensors-table {
-    width: auto;
+    width: 100%;
     border-collapse: collapse;
     font-size: 14px;
 }
@@ -1189,7 +1189,7 @@ button:disabled {
     text-align: left;
     font-weight: 600;
     color: #333;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .sensors-table tbody tr {
@@ -1216,7 +1216,7 @@ button:disabled {
     border-radius: 4px;
     cursor: pointer;
     border: none;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 .btn-small.btn-secondary {
