@@ -79,8 +79,6 @@ async function loadPlantProfiles() {
                             id: variety.id,
                             name: `${type.name} - ${variety.name}`,
                             emoji: type.emoji,
-                            moisture_min: variety.moisture_min,
-                            moisture_max: variety.moisture_max,
                             description: variety.description
                         });
                     });
