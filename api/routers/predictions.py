@@ -5,6 +5,7 @@ import auth
 
 router = APIRouter(prefix="/api", tags=["predictions"])
 
+
 @router.get("/predictions/{device_uid}")
 async def device_predictions(
     device_uid: str,
@@ -36,6 +37,7 @@ async def device_predictions(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/weather")
 async def weather_forecast(
