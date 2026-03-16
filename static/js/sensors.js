@@ -175,7 +175,7 @@ function renderSensorRow(sensor) {
     // Plant assign button — only for moisture sensors
     const plantBtn = sensor.sensor_type === 'moisture'
         ? `<button class="btn-small" style="background:#2e7d32;" 
-               onclick="openPlantModal(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}', ${sensor.plant_profile_id === null || sensor.plant_profile_id === undefined ? 'null' : sensor.plant_profile_id})">
+               onclick="openPlantModal(${sensor.id}, '${sensor.sensor_name}', '${sensor.device_uid}', ${sensor.variety_id  === null || sensor.variety_id  === undefined ? 'null' : sensor.variety_id})">
                🌱 Plant
            </button>`
         : '';
@@ -314,7 +314,7 @@ async function savePlantProfile() {
         const res = await fetch(`/api/sensors/${plantModalSensorId}/plant-profile`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ plant_profile_id: plantModalSelectedProfileId })
+            body: JSON.stringify({ variety_id: plantModalSelectedProfileId })
         });
 
         const data = await res.json();
