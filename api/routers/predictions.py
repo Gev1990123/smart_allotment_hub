@@ -26,7 +26,7 @@ async def device_predictions(
         raise HTTPException(status_code=403, detail="Access denied")
 
     try:
-        from predictions import get_predictions
+        from api.routers.predictions import get_predictions
         result = await get_predictions(
             device_uid=device_uid,
             lat=lat,
@@ -48,7 +48,7 @@ async def weather_forecast(
     Useful for dashboard weather widgets independent of a specific device.
     """
     try:
-        from predictions import fetch_weather_forecast
+        from api.routers.predictions import fetch_weather_forecast
         data = await fetch_weather_forecast(lat, lon)
         return data
     except Exception as e:
