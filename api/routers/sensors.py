@@ -25,12 +25,17 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                     s.id, s.device_id, d.uid AS device_uid, s.sensor_name,
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen,
                     s.notes, s.created_at, s.zone_name,
-                    spa.plant_profile_id,
-                    pp.name AS plant_profile_name
+                    spa.variety_id,
+                    COALESCE(pt.name || ' - ' || pv.name, 'Not Assigned') AS plant_profile_name,
+                    pt.emoji,
+                    pv.moisture_min, pv.moisture_max,
+                    pv.light_min, pv.light_max,
+                    pv.temp_min, pv.temp_max
                 FROM sensors s
                 JOIN devices d ON s.device_id = d.id
                 LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
-                LEFT JOIN plant_profiles pp ON pp.id = spa.plant_profile_id
+                LEFT JOIN plant_varieties pv ON pv.id = spa.variety_id
+                LEFT JOIN plant_types pt ON pt.id = pv.plant_type_id
                 ORDER BY d.uid, s.sensor_name;
             """)
         else:
@@ -40,12 +45,17 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                     s.id, s.device_id, d.uid AS device_uid, s.sensor_name,
                     s.sensor_type, s.unit, s.active, s.last_value, s.last_seen,
                     s.notes, s.created_at, s.zone_name,
-                    spa.plant_profile_id,
-                    pp.name AS plant_profile_name
+                    spa.variety_id,
+                    COALESCE(pt.name || ' - ' || pv.name, 'Not Assigned') AS plant_profile_name,
+                    pt.emoji,
+                    pv.moisture_min, pv.moisture_max,
+                    pv.light_min, pv.light_max,
+                    pv.temp_min, pv.temp_max
                 FROM sensors s
                 JOIN devices d ON s.device_id = d.id
                 LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
-                LEFT JOIN plant_profiles pp ON pp.id = spa.plant_profile_id
+                LEFT JOIN plant_varieties pv ON pv.id = spa.variety_id
+                LEFT JOIN plant_types pt ON pt.id = pv.plant_type_id        
                 WHERE d.site_id IN ({placeholders})
                 ORDER BY d.uid, s.sensor_name;
             """, allowed_sites)
