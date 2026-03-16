@@ -77,7 +77,7 @@ async def list_sensors_managed(current_user: Dict = Depends(get_current_user)):
                 "notes": row[9],
                 "created_at": row[10].isoformat() if row[10] else None,
                 "zone_name": row[11],
-                "plant_profile_id": row[12],
+                "variety_id": row[12],
                 "plant_profile_name": row[13],
             })
 
