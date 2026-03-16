@@ -138,7 +138,7 @@ async def list_users(admin: Dict = Depends(require_sys_admin_dep)):
     cur = conn.cursor()
     try:
         cur.execute("""
-            SELECT id, username, email, full_name, role, created_at
+            SELECT id, username, email, full_name, role, active, created_at
             FROM users
             ORDER BY id;
         """)
@@ -152,7 +152,8 @@ async def list_users(admin: Dict = Depends(require_sys_admin_dep)):
                     "email": r[2],
                     "full_name": r[3],
                     "role": r[4],
-                    "created_at": r[5].isoformat() if r[5] else None
+                    "active": r[5],
+                    "created_at": r[6].isoformat() if r[6] else None
                 }
                 for r in rows
             ]
