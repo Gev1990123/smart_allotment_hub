@@ -91,3 +91,33 @@ class PlantProfileCreate(BaseModel):
 
 class PlantProfileUpdate(PlantProfileCreate):
     pass
+
+class PlantTypeCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    emoji: str = "🌱"
+
+class PlantTypeUpdate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    emoji: str = "🌱"
+
+class VarietyCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    moisture_min: int
+    moisture_max: int
+    light_min: Optional[float] = None
+    light_max: Optional[float] = None
+    temp_min: Optional[float] = None
+    temp_max: Optional[float] = None
+
+class VarietyUpdate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    moisture_min: int
+    moisture_max: int
+    light_min: Optional[float] = None
+    light_max: Optional[float] = None
+    temp_min: Optional[float] = None
+    temp_max: Optional[float] = None

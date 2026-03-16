@@ -146,6 +146,11 @@ CREATE TABLE IF NOT EXISTS plant_profiles (
     moisture_max NUMERIC(5,2) NOT NULL,
     description  TEXT,
     emoji        VARCHAR(10) DEFAULT '🌱',
+    variety      VARCHAR(100),
+    light_min    DECIMAL(5,2),
+    light_max    DECIMAL(5,2),
+    temp_min     DECIMAL(5,2),
+    temp_max     DECIMAL(5,2),
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 

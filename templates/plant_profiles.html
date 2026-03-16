@@ -5,7 +5,173 @@
     <title>Plant Profiles - Smart Allotment</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <script src="/static/js/scripts.js"></script>
+    <style>
+        /* Enhanced plant profiles styling */
+        .plant-type-view { display: none; }
+        .plant-type-view.active { display: block; }
 
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .breadcrumb-back {
+            cursor: pointer;
+            color: #2e7d32;
+            text-decoration: none;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .breadcrumb-back:hover {
+            color: #1b5e20;
+        }
+
+        .plant-type-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plant-type-card:hover {
+            border-color: #2e7d32;
+            box-shadow: 0 4px 12px rgba(46, 125, 50, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .plant-type-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #2e7d32, #4caf50);
+        }
+
+        .plant-type-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .plant-type-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1b1b1b;
+        }
+
+        .plant-type-emoji {
+            font-size: 32px;
+        }
+
+        .plant-type-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            color: #666;
+            margin-top: 12px;
+        }
+
+        .plant-type-stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .variety-card {
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .variety-card:hover {
+            border-color: #2e7d32;
+            background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
+        }
+
+        .variety-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .variety-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: #1b1b1b;
+        }
+
+        .variety-badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .env-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .env-stat {
+            font-size: 12px;
+        }
+
+        .env-stat-label {
+            color: #888;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .env-stat-value {
+            color: #2e7d32;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        /* Modal for variety form */
+        .env-fields-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .form-group-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .field-help-text {
+            font-size: 11px;
+            color: #999;
+            margin-top: 3px;
+        }
+    </style>
 </head>
 
 <body>
@@ -38,150 +204,231 @@
 
 <main>
 
-    <!-- Page Header -->
-    <div class="page-selector">
-        <div style="flex: 1;">
-            <h2 style="margin: 0; font-size: 20px;">🌿 Plant Profile Management</h2>
-            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
-                Define moisture thresholds for each plant type. Sensors inherit these ranges for watering decisions.
-            </p>
+    <!-- PLANT TYPE VIEW (List of all plant types) -->
+    <div id="plantTypeView" class="plant-type-view active">
+        <div class="page-selector">
+            <div style="flex: 1;">
+                <h2 style="margin: 0; font-size: 20px;">🌿 Plant Profile Management</h2>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                    Click on a plant type to view and manage varieties, or add a new type.
+                </p>
+            </div>
+            <button onclick="openAddPlantTypeModal()">+ Add Plant Type</button>
+            <button onclick="window.location.href='/sensors'" class="btn-secondary">← Back to Sensors</button>
         </div>
-        <button onclick="openAddModal()">+ Add Profile</button>
-        <button onclick="window.location.href='/sensors'" class="btn-secondary">← Back to Sensors</button>
-    </div>
 
-    <!-- Stats Bar -->
-    <div class="profile-stats-bar">
-        <div class="stat-pill">
-            <div class="stat-pill-icon">🌿</div>
-            <div class="stat-pill-text">
-                <strong id="statTotal">--</strong>
-                <span>Total Profiles</span>
+        <div class="profile-stats-bar">
+            <div class="stat-pill">
+                <div class="stat-pill-icon">🌿</div>
+                <div class="stat-pill-text">
+                    <strong id="statPlantTypes">--</strong>
+                    <span>Plant Types</span>
+                </div>
+            </div>
+            <div class="stat-pill">
+                <div class="stat-pill-icon">📋</div>
+                <div class="stat-pill-text">
+                    <strong id="statTotalVarieties">--</strong>
+                    <span>Total Varieties</span>
+                </div>
+            </div>
+            <div class="stat-pill">
+                <div class="stat-pill-icon">💧</div>
+                <div class="stat-pill-text">
+                    <strong id="statAvgMoisture">--</strong>
+                    <span>Avg Moisture Range</span>
+                </div>
+            </div>
+            <div class="stat-pill">
+                <div class="stat-pill-icon">🔧</div>
+                <div class="stat-pill-text">
+                    <strong id="statAssignedSensors">--</strong>
+                    <span>Sensors Assigned</span>
+                </div>
             </div>
         </div>
-        <div class="stat-pill">
-            <div class="stat-pill-icon">💧</div>
-            <div class="stat-pill-text">
-                <strong id="statAvgMin">--</strong>
-                <span>Avg Min Moisture</span>
-            </div>
+
+        <div id="plantTypesGrid" class="profiles-grid">
+            <div class="shimmer"></div>
+            <div class="shimmer"></div>
+            <div class="shimmer"></div>
+            <div class="shimmer"></div>
         </div>
-        <div class="stat-pill">
-            <div class="stat-pill-icon">🌊</div>
-            <div class="stat-pill-text">
-                <strong id="statAvgMax">--</strong>
-                <span>Avg Max Moisture</span>
-            </div>
-        </div>
-        <div class="stat-pill">
-            <div class="stat-pill-icon">🔧</div>
-            <div class="stat-pill-text">
-                <strong id="statAssigned">--</strong>
-                <span>Sensors Assigned</span>
+
+        <div id="emptyPlantTypeState" style="display: none;" class="latest-box">
+            <div style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🌱</div>
+                <h3 style="color: #aaa;">No plant types found</h3>
+                <p style="color: #bbb;">Add your first plant type to get started.</p>
+                <button onclick="openAddPlantTypeModal()" style="margin-top: 15px;">+ Add First Plant Type</button>
             </div>
         </div>
     </div>
 
-    <!-- Profile Cards -->
-    <div id="profilesGrid" class="profiles-grid">
-        <!-- Loading shimmers -->
-        <div class="shimmer"></div>
-        <div class="shimmer"></div>
-        <div class="shimmer"></div>
-        <div class="shimmer"></div>
-    </div>
+    <!-- VARIETY VIEW (List of varieties for a selected plant type) -->
+    <div id="varietyView" class="plant-type-view">
+        <div class="breadcrumb">
+            <span class="breadcrumb-back" onclick="showPlantTypeView()">← Plant Types</span>
+            <span style="color: #999;">/</span>
+            <span id="varietyBreadcrumbName" style="color: #333; font-weight: 600;"></span>
+        </div>
 
-    <div id="emptyState" style="display: none;" class="latest-box" style="text-align: center;">
-        <div style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 48px; margin-bottom: 15px;">🌱</div>
-            <h3 style="color: #aaa;">No plant profiles found</h3>
-            <p style="color: #bbb;">Add your first profile to start using plant-specific moisture thresholds.</p>
-            <button onclick="openAddModal()" style="margin-top: 15px;">+ Add First Profile</button>
+        <div class="page-selector">
+            <div style="flex: 1;">
+                <h2 style="margin: 0; font-size: 20px;" id="varietyPageTitle">Varieties</h2>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                    Manage varieties for this plant type. Sensors inherit environmental thresholds from a variety.
+                </p>
+            </div>
+            <button onclick="openAddVarietyModal()">+ Add Variety</button>
+        </div>
+
+        <div id="varietiesGrid" style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="shimmer"></div>
+            <div class="shimmer"></div>
+        </div>
+
+        <div id="emptyVarietyState" style="display: none;" class="latest-box">
+            <div style="text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                <h3 style="color: #aaa;">No varieties found</h3>
+                <p style="color: #bbb;">Add your first variety to this plant type.</p>
+                <button onclick="openAddVarietyModal()" style="margin-top: 15px;">+ Add First Variety</button>
+            </div>
         </div>
     </div>
-
 
     <!-- ================================================
-         ADD / EDIT PROFILE MODAL
+         ADD / EDIT PLANT TYPE MODAL
     ================================================ -->
-    <div id="profileModal" class="modal">
+    <div id="plantTypeModal" class="modal">
         <div class="modal-content" style="max-width: 520px;">
             <div class="modal-header">
-                <h3 id="profileModalTitle">🌿 Add Plant Profile</h3>
-                <span class="modal-close" onclick="closeProfileModal()">&times;</span>
+                <h3 id="plantTypeModalTitle">🌿 Add Plant Type</h3>
+                <span class="modal-close" onclick="closePlantTypeModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <form id="profileForm" onsubmit="saveProfile(event)">
-                    <input type="hidden" id="editProfileId">
+                <form id="plantTypeForm" onsubmit="savePlantType(event)">
+                    <input type="hidden" id="editPlantTypeId">
 
-                    <!-- Plant name -->
                     <div class="form-group">
-                        <label for="profileName">Plant Name <span style="color: #e53935;">*</span></label>
-                        <input type="text" id="profileName" required
-                               placeholder="e.g., Tomato, Basil, Courgette"
+                        <label for="plantTypeName">Plant Type Name <span style="color: #e53935;">*</span></label>
+                        <input type="text" id="plantTypeName" required
+                               placeholder="e.g., Tomato, Lettuce, Carrot"
                                maxlength="100">
-                        <small>This name appears in sensor assignment dropdowns</small>
+                        <small>The main plant category</small>
                     </div>
 
-                    <!-- Emoji picker -->
                     <div class="form-group">
                         <label>Icon</label>
-                        <div class="emoji-options" id="emojiOptions">
-                            <!-- filled by JS -->
-                        </div>
-                        <input type="hidden" id="profileEmoji" value="🌱">
+                        <div class="emoji-options" id="typeEmojiOptions"></div>
+                        <input type="hidden" id="plantTypeEmoji" value="🌱">
                     </div>
 
-                    <!-- Description -->
                     <div class="form-group">
-                        <label for="profileDesc">Description</label>
-                        <textarea id="profileDesc" rows="2"
-                                  placeholder="e.g., Needs consistent moisture, avoid waterlogging"
+                        <label for="plantTypeDesc">Description</label>
+                        <textarea id="plantTypeDesc" rows="2"
+                                  placeholder="e.g., Popular vegetable for home gardens"
                                   style="width:100%; padding:10px 12px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box; resize: vertical;"></textarea>
                     </div>
 
-                    <!-- Moisture range sliders -->
+                    <div id="plantTypeFormError" class="form-error" style="display:none;"></div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closePlantTypeModal()">Cancel</button>
+                        <button type="submit" id="savePlantTypeBtn">Save Plant Type</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================
+         ADD / EDIT VARIETY MODAL
+    ================================================ -->
+    <div id="varietyModal" class="modal">
+        <div class="modal-content" style="max-width: 620px;">
+            <div class="modal-header">
+                <h3 id="varietyModalTitle">📋 Add Variety</h3>
+                <span class="modal-close" onclick="closeVarietyModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="varietyForm" onsubmit="saveVariety(event)">
+                    <input type="hidden" id="editVarietyId">
+                    <input type="hidden" id="currentPlantTypeId">
+
+                    <div class="form-group">
+                        <label for="varietyName">Variety Name <span style="color: #e53935;">*</span></label>
+                        <input type="text" id="varietyName" required
+                               placeholder="e.g., Beefsteak, Cherry, Roma"
+                               maxlength="100">
+                        <small>A specific cultivar within this plant type</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="varietyDesc">Description</label>
+                        <textarea id="varietyDesc" rows="2"
+                                  placeholder="e.g., Early ripening, ideal for cooler climates"
+                                  style="width:100%; padding:10px 12px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box; resize: vertical;"></textarea>
+                    </div>
+
+                    <!-- Moisture Range -->
                     <div class="form-group">
                         <label>Moisture Range (%)</label>
                         <div class="range-group">
                             <div class="range-row">
                                 <label style="width:36px; font-size:12px;">Min</label>
-                                <input type="range" id="moistureMin" min="0" max="100" value="30"
-                                       oninput="onRangeChange()">
-                                <span class="range-value" id="minDisplay">30%</span>
+                                <input type="range" id="varietyMoistureMin" min="0" max="100" value="30"
+                                       oninput="onVarietyRangeChange('moisture')">
+                                <span class="range-value" id="varietyMinMoistureDisplay">30%</span>
                             </div>
                             <div class="range-row">
                                 <label style="width:36px; font-size:12px;">Max</label>
-                                <input type="range" id="moistureMax" min="0" max="100" value="70"
-                                       oninput="onRangeChange()">
-                                <span class="range-value" id="maxDisplay">70%</span>
+                                <input type="range" id="varietyMoistureMax" min="0" max="100" value="70"
+                                       oninput="onVarietyRangeChange('moisture')">
+                                <span class="range-value" id="varietyMaxMoistureDisplay">70%</span>
                             </div>
                         </div>
-
-                        <!-- Live preview bar -->
                         <div class="range-preview">
-                            <div style="font-size:12px; color:#555; margin-bottom:4px;">Preview</div>
                             <div class="range-preview-bar-wrap">
-                                <div class="range-preview-bar" id="previewBar"></div>
-                            </div>
-                            <div class="range-preview-label">
-                                <span>0%</span>
-                                <span id="previewRangeText" style="color:#2e7d32; font-weight:600;">30% – 70%</span>
-                                <span>100%</span>
+                                <div class="range-preview-bar" id="varietyMoisturePreviewBar"></div>
                             </div>
                         </div>
-                        <small style="margin-top:8px; display:block;">
-                            Readings below min = <strong style="color:#e53935;">too dry</strong> &nbsp;|&nbsp;
-                            Above max = <strong style="color:#1565c0;">too wet</strong> &nbsp;|&nbsp;
-                            In range = <strong style="color:#2e7d32;">✓ ok</strong>
-                        </small>
                     </div>
 
-                    <div id="profileFormError" class="form-error" style="display:none;"></div>
+                    <!-- Environmental Fields -->
+                    <div class="env-fields-group">
+                        <div class="form-group">
+                            <label for="varietyLightMin">Light Min (lux)</label>
+                            <input type="number" id="varietyLightMin" step="100" placeholder="0"
+                                   oninput="onVarietyRangeChange('light')">
+                            <div class="field-help-text">Minimum light intensity</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="varietyLightMax">Light Max (lux)</label>
+                            <input type="number" id="varietyLightMax" step="100" placeholder="80000"
+                                   oninput="onVarietyRangeChange('light')">
+                            <div class="field-help-text">Maximum light intensity</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="varietyTempMin">Temperature Min (°C)</label>
+                            <input type="number" id="varietyTempMin" step="0.1" placeholder="10"
+                                   oninput="onVarietyRangeChange('temp')">
+                            <div class="field-help-text">Minimum temperature</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="varietyTempMax">Temperature Max (°C)</label>
+                            <input type="number" id="varietyTempMax" step="0.1" placeholder="30"
+                                   oninput="onVarietyRangeChange('temp')">
+                            <div class="field-help-text">Maximum temperature</div>
+                        </div>
+                    </div>
+
+                    <div id="varietyFormError" class="form-error" style="display:none;"></div>
 
                     <div class="modal-actions">
-                        <button type="button" class="btn-secondary" onclick="closeProfileModal()">Cancel</button>
-                        <button type="submit" id="saveProfileBtn">Save Profile</button>
+                        <button type="button" class="btn-secondary" onclick="closeVarietyModal()">Cancel</button>
+                        <button type="submit" id="saveVarietyBtn">Save Variety</button>
                     </div>
                 </form>
             </div>
@@ -194,17 +441,17 @@
     <div id="deleteModal" class="modal">
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
-                <h3>⚠️ Delete Profile</h3>
+                <h3>⚠️ Delete</h3>
                 <span class="modal-close" onclick="closeDeleteModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete this plant profile?</p>
+                <p id="deleteMessage">Are you sure?</p>
 
                 <div class="delete-detail">
-                    <strong id="deleteProfileName">--</strong>
+                    <strong id="deleteItemName">--</strong>
                     <div id="deleteAssignedWarning" style="display:none; margin-top:8px; color:#b71c1c; font-size:13px;">
-                        ⚠️ <span id="deleteAssignedCount">0</span> sensor(s) are currently using this profile.
-                        They will revert to the <strong>General</strong> defaults.
+                        ⚠️ <span id="deleteAssignedCount">0</span> sensor(s) are currently using this.
+                        They will revert to defaults.
                     </div>
                 </div>
 
@@ -218,7 +465,7 @@
                     <button type="button" class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
                     <button type="button" id="confirmDeleteBtn"
                             onclick="confirmDelete()"
-                            style="background:#e53935;">Delete Profile</button>
+                            style="background:#e53935;">Delete</button>
                 </div>
             </div>
         </div>
@@ -233,60 +480,72 @@
 // ============================================================
 // STATE
 // ============================================================
-let allProfiles = [];
+let allPlantTypes = [];
+let currentPlantTypeId = null;
+let currentVarieties = [];
 let deleteTargetId = null;
+let deleteTargetType = null; // 'plant_type' or 'variety'
 const EMOJI_OPTIONS = ['🌱','🍅','🥬','🥕','🌿','🫑','🥔','🍓','🌾','🫐','🧅','🌽','🥦','🫛','🌻'];
 
 // ============================================================
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-    buildEmojiPicker();
-    onRangeChange();     // set preview to defaults
-    loadProfiles();
+    buildEmojiPicker('typeEmojiOptions', 'plantTypeEmoji');
+    onVarietyRangeChange('moisture');
+    loadPlantTypes();
 });
 
 // ============================================================
-// API CALLS
+// VIEW MANAGEMENT
 // ============================================================
-async function loadProfiles() {
+function showPlantTypeView() {
+    currentPlantTypeId = null;
+    currentVarieties = [];
+    document.getElementById('plantTypeView').classList.add('active');
+    document.getElementById('varietyView').classList.remove('active');
+    loadPlantTypes();
+}
+
+function showVarietyView(plantTypeId) {
+    currentPlantTypeId = plantTypeId;
+    document.getElementById('plantTypeView').classList.remove('active');
+    document.getElementById('varietyView').classList.add('active');
+    loadVarieties(plantTypeId);
+}
+
+// ============================================================
+// API CALLS - PLANT TYPES
+// ============================================================
+async function loadPlantTypes() {
     try {
-        const res = await fetch('/api/plant-profiles');
+        const res = await fetch('/api/plant-profiles/types');
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        allProfiles = data.plant_profiles || [];
-        renderProfiles(allProfiles);
+        allPlantTypes = data.plant_types || [];
+        renderPlantTypes(allPlantTypes);
         updateStats();
     } catch (e) {
-        showToast('Failed to load profiles: ' + e.message, true);
-        document.getElementById('profilesGrid').innerHTML =
-            '<p style="color:#e53935; padding:20px;">Error loading profiles.</p>';
+        showToast('Failed to load plant types: ' + e.message, true);
     }
 }
 
-async function saveProfile(e) {
+async function savePlantType(e) {
     e.preventDefault();
-    const id = document.getElementById('editProfileId').value;
-    const name = document.getElementById('profileName').value.trim();
-    const description = document.getElementById('profileDesc').value.trim();
-    const moisture_min = parseInt(document.getElementById('moistureMin').value);
-    const moisture_max = parseInt(document.getElementById('moistureMax').value);
-    const emoji = document.getElementById('profileEmoji').value;
+    const id = document.getElementById('editPlantTypeId').value;
+    const name = document.getElementById('plantTypeName').value.trim();
+    const description = document.getElementById('plantTypeDesc').value.trim();
+    const emoji = document.getElementById('plantTypeEmoji').value;
 
-    if (moisture_min >= moisture_max) {
-        showFormError('profileFormError', 'Minimum moisture must be less than maximum.');
-        return;
-    }
-
-    const payload = { name, description: description || null, moisture_min, moisture_max, emoji };
+    const payload = { name, description: description || null, emoji };
     const isEdit = !!id;
-    const url = isEdit ? `/api/plant-profiles/${id}` : '/api/plant-profiles';
+    const url = isEdit ? `/api/plant-profiles/types/${id}` : '/api/plant-profiles/types';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const btn = document.getElementById('saveProfileBtn');
+    const btn = document.getElementById('savePlantTypeBtn');
     btn.disabled = true;
     btn.textContent = 'Saving…';
-    hideFormError('profileFormError');
+    hideFormError('plantTypeFormError');
 
     try {
         const res = await fetch(url, {
@@ -297,14 +556,104 @@ async function saveProfile(e) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
 
-        closeProfileModal();
-        showToast(isEdit ? '✅ Profile updated!' : '✅ Profile created!');
-        await loadProfiles();
+        closePlantTypeModal();
+        showToast(isEdit ? '✅ Plant type updated!' : '✅ Plant type created!');
+        await loadPlantTypes();
     } catch (err) {
-        showFormError('profileFormError', err.message);
+        showFormError('plantTypeFormError', err.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Save Profile';
+        btn.textContent = 'Save Plant Type';
+    }
+}
+
+// ============================================================
+// API CALLS - VARIETIES
+// ============================================================
+async function loadVarieties(plantTypeId) {
+    try {
+        const res = await fetch(`/api/plant-profiles/types/${plantTypeId}/varieties`);
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        
+        const plantType = allPlantTypes.find(pt => pt.id === plantTypeId);
+        document.getElementById('varietyBreadcrumbName').textContent = plantType?.name || 'Plant';
+        document.getElementById('varietyPageTitle').textContent = `${plantType?.emoji || '🌱'} ${plantType?.name || 'Plant'} Varieties`;
+
+        currentVarieties = data.varieties || [];
+        renderVarieties(currentVarieties);
+    } catch (e) {
+        showToast('Failed to load varieties: ' + e.message, true);
+    }
+}
+
+async function saveVariety(e) {
+    e.preventDefault();
+    
+    const id = document.getElementById('editVarietyId').value;
+    const plantTypeId = document.getElementById('currentPlantTypeId').value;
+    const name = document.getElementById('varietyName').value.trim();
+    const description = document.getElementById('varietyDesc').value.trim();
+    const moisture_min = parseInt(document.getElementById('varietyMoistureMin').value);
+    const moisture_max = parseInt(document.getElementById('varietyMoistureMax').value);
+    const light_min = document.getElementById('varietyLightMin').value ? parseFloat(document.getElementById('varietyLightMin').value) : null;
+    const light_max = document.getElementById('varietyLightMax').value ? parseFloat(document.getElementById('varietyLightMax').value) : null;
+    const temp_min = document.getElementById('varietyTempMin').value ? parseFloat(document.getElementById('varietyTempMin').value) : null;
+    const temp_max = document.getElementById('varietyTempMax').value ? parseFloat(document.getElementById('varietyTempMax').value) : null;
+
+    if (moisture_min >= moisture_max) {
+        showFormError('varietyFormError', 'Minimum moisture must be less than maximum.');
+        return;
+    }
+
+    if (light_min !== null && light_max !== null && light_min >= light_max) {
+        showFormError('varietyFormError', 'Minimum light must be less than maximum.');
+        return;
+    }
+
+    if (temp_min !== null && temp_max !== null && temp_min >= temp_max) {
+        showFormError('varietyFormError', 'Minimum temperature must be less than maximum.');
+        return;
+    }
+
+    const payload = {
+        plant_type_id: parseInt(plantTypeId),
+        name,
+        description: description || null,
+        moisture_min,
+        moisture_max,
+        light_min,
+        light_max,
+        temp_min,
+        temp_max
+    };
+
+    const isEdit = !!id;
+    const url = isEdit ? `/api/plant-profiles/varieties/${id}` : `/api/plant-profiles/types/${plantTypeId}/varieties`;
+    const method = isEdit ? 'PUT' : 'POST';
+
+    const btn = document.getElementById('saveVarietyBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    hideFormError('varietyFormError');
+
+    try {
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
+
+        closeVarietyModal();
+        showToast(isEdit ? '✅ Variety updated!' : '✅ Variety created!');
+        await loadVarieties(plantTypeId);
+    } catch (err) {
+        showFormError('varietyFormError', err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Variety';
     }
 }
 
@@ -317,145 +666,245 @@ async function confirmDelete() {
     hideFormError('deleteError');
 
     try {
-        const res = await fetch(`/api/plant-profiles/${deleteTargetId}`, { method: 'DELETE' });
+        const url = deleteTargetType === 'plant_type'
+            ? `/api/plant-profiles/types/${deleteTargetId}`
+            : `/api/plant-profiles/varieties/${deleteTargetId}`;
+
+        const res = await fetch(url, { method: 'DELETE' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
 
         closeDeleteModal();
-        showToast('🗑️ Profile deleted.');
-        await loadProfiles();
+        showToast('🗑️ Deleted successfully.');
+
+        if (deleteTargetType === 'plant_type') {
+            await loadPlantTypes();
+        } else {
+            await loadVarieties(currentPlantTypeId);
+        }
     } catch (err) {
         showFormError('deleteError', err.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Delete Profile';
+        btn.textContent = 'Delete';
     }
 }
 
 // ============================================================
 // RENDER
 // ============================================================
-function renderProfiles(profiles) {
-    const grid = document.getElementById('profilesGrid');
-    const empty = document.getElementById('emptyState');
+function renderPlantTypes(types) {
+    const grid = document.getElementById('plantTypesGrid');
+    const empty = document.getElementById('emptyPlantTypeState');
 
-    if (!profiles.length) {
+    if (!types.length) {
         grid.innerHTML = '';
         empty.style.display = 'block';
         return;
     }
     empty.style.display = 'none';
 
-    grid.innerHTML = profiles.map(p => {
-        const emoji = p.emoji || '🌱';
-        const isGeneral = p.name === 'General';
-        const barLeft = p.moisture_min;
-        const barWidth = p.moisture_max - p.moisture_min;
-        const assignedCount = p.sensor_count || 0;
-
-        return `
-        <div class="profile-card" id="profile-card-${p.id}">
-            <div class="profile-card-header">
+    grid.innerHTML = types.map(pt => `
+        <div class="plant-type-card" onclick="showVarietyView(${pt.id})">
+            <div class="plant-type-header">
                 <div>
-                    <div class="profile-card-name">${escHtml(p.name)}</div>
-                    <div style="margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-                        ${isGeneral ? '<span class="default-badge">Default</span>' : ''}
-                        <span class="sensors-count-badge">${assignedCount} sensor${assignedCount !== 1 ? 's' : ''}</span>
+                    <div class="plant-type-name">${escHtml(pt.name)}</div>
+                    ${pt.description ? `<div style="font-size: 12px; color: #999; margin-top: 4px;">${escHtml(pt.description)}</div>` : ''}
+                </div>
+                <div class="plant-type-emoji">${pt.emoji || '🌱'}</div>
+            </div>
+            <div class="plant-type-stats">
+                <div class="plant-type-stat">📋 ${pt.variety_count || 0} ${pt.variety_count === 1 ? 'variety' : 'varieties'}</div>
+                <div class="plant-type-stat">🔧 ${pt.sensor_count || 0} sensors</div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 6px;">
+                <button class="btn-small" onclick="event.stopPropagation(); openEditPlantTypeModal(${pt.id})">✏️ Edit</button>
+                <button class="btn-small btn-danger" onclick="event.stopPropagation(); openDeletePlantTypeModal(${pt.id})">🗑️ Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderVarieties(varieties) {
+    const grid = document.getElementById('varietiesGrid');
+    const empty = document.getElementById('emptyVarietyState');
+
+    if (!varieties.length) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+    }
+    empty.style.display = 'none';
+
+    grid.innerHTML = varieties.map(v => `
+        <div class="variety-card">
+            <div class="variety-header">
+                <div style="flex: 1;">
+                    <div class="variety-name">${escHtml(v.name)}</div>
+                    ${v.description ? `<div style="font-size: 12px; color: #999; margin-top: 4px;">${escHtml(v.description)}</div>` : ''}
+                </div>
+                <div class="variety-badges">
+                    <span class="sensors-count-badge">${v.sensor_count || 0} sensor${v.sensor_count !== 1 ? 's' : ''}</span>
+                </div>
+            </div>
+
+            <div class="env-grid">
+                <div class="env-stat">
+                    <div class="env-stat-label">💧 Moisture</div>
+                    <div class="env-stat-value">${v.moisture_min}% – ${v.moisture_max}%</div>
+                </div>
+                ${v.light_min !== null || v.light_max !== null ? `
+                    <div class="env-stat">
+                        <div class="env-stat-label">💡 Light</div>
+                        <div class="env-stat-value">${v.light_min || 0} – ${v.light_max || '∞'} lux</div>
                     </div>
-                </div>
-                <div class="profile-card-emoji">${emoji}</div>
+                ` : '<div></div>'}
+                ${v.temp_min !== null || v.temp_max !== null ? `
+                    <div class="env-stat">
+                        <div class="env-stat-label">🌡️ Temperature</div>
+                        <div class="env-stat-value">${v.temp_min || '−∞'} – ${v.temp_max || '∞'} °C</div>
+                    </div>
+                ` : '<div></div>'}
             </div>
 
-            ${p.description ? `<div class="profile-card-desc">${escHtml(p.description)}</div>` : '<div class="profile-card-desc" style="color:#ccc; font-style:italic;">No description</div>'}
-
-            <div>
-                <div style="font-size:12px; color:#888; margin-bottom:5px; font-weight:600;">
-                    MOISTURE RANGE: <span style="color:#2e7d32;">${p.moisture_min}% – ${p.moisture_max}%</span>
-                </div>
-                <div class="moisture-bar-wrap">
-                    <div class="moisture-bar" style="left:${barLeft}%; width:${barWidth}%;"></div>
-                </div>
-                <div class="moisture-labels">
-                    <span>0%</span>
-                    <span><strong>${p.moisture_min}%</strong> min &nbsp;|&nbsp; <strong>${p.moisture_max}%</strong> max</span>
-                    <span>100%</span>
-                </div>
+            <div style="margin-top: 12px; display: flex; gap: 6px;">
+                <button class="btn-small" onclick="openEditVarietyModal(${v.id})">✏️ Edit</button>
+                <button class="btn-small btn-danger" onclick="openDeleteVarietyModal(${v.id})">🗑️ Delete</button>
             </div>
-
-            <div class="profile-card-actions">
-                <button class="btn-small" onclick="openEditModal(${p.id})">✏️ Edit</button>
-                <button class="btn-small btn-danger" onclick="openDeleteModal(${p.id})"
-                    ${isGeneral ? 'disabled title="The General profile cannot be deleted"' : ''}>
-                    🗑️ Delete
-                </button>
-            </div>
-        </div>`;
-    }).join('');
+        </div>
+    `).join('');
 }
 
 function updateStats() {
-    document.getElementById('statTotal').textContent = allProfiles.length;
+    const totalTypes = allPlantTypes.length;
+    const totalVarieties = allPlantTypes.reduce((sum, pt) => sum + (pt.variety_count || 0), 0);
+    const totalSensors = allPlantTypes.reduce((sum, pt) => sum + (pt.sensor_count || 0), 0);
+    
+    document.getElementById('statPlantTypes').textContent = totalTypes;
+    document.getElementById('statTotalVarieties').textContent = totalVarieties;
+    document.getElementById('statAssignedSensors').textContent = totalSensors;
 
-    if (allProfiles.length) {
-        const avgMin = (allProfiles.reduce((s, p) => s + p.moisture_min, 0) / allProfiles.length).toFixed(0);
-        const avgMax = (allProfiles.reduce((s, p) => s + p.moisture_max, 0) / allProfiles.length).toFixed(0);
-        const totalAssigned = allProfiles.reduce((s, p) => s + (p.sensor_count || 0), 0);
-        document.getElementById('statAvgMin').textContent = avgMin + '%';
-        document.getElementById('statAvgMax').textContent = avgMax + '%';
-        document.getElementById('statAssigned').textContent = totalAssigned;
+    // Calculate average moisture across all varieties
+    let totalMoistureRanges = 0;
+    let varietyCount = 0;
+    allPlantTypes.forEach(pt => {
+        // In the plant type view we may not have variety details, so estimate
+        varietyCount += (pt.variety_count || 1);
+    });
+    
+    if (varietyCount > 0) {
+        document.getElementById('statAvgMoisture').textContent = '--';
     } else {
-        document.getElementById('statAvgMin').textContent = '--';
-        document.getElementById('statAvgMax').textContent = '--';
-        document.getElementById('statAssigned').textContent = '0';
+        document.getElementById('statAvgMoisture').textContent = '--';
     }
 }
 
 // ============================================================
-// MODALS
+// MODALS - PLANT TYPE
 // ============================================================
-function openAddModal() {
-    document.getElementById('profileModalTitle').textContent = '🌿 Add Plant Profile';
-    document.getElementById('editProfileId').value = '';
-    document.getElementById('profileName').value = '';
-    document.getElementById('profileDesc').value = '';
-    document.getElementById('moistureMin').value = 30;
-    document.getElementById('moistureMax').value = 70;
-    selectEmoji('🌱');
-    onRangeChange();
-    hideFormError('profileFormError');
-    document.getElementById('saveProfileBtn').textContent = 'Save Profile';
-    document.getElementById('profileModal').classList.add('is-open');
-    document.getElementById('profileName').focus();
+function openAddPlantTypeModal() {
+    document.getElementById('plantTypeModalTitle').textContent = '🌿 Add Plant Type';
+    document.getElementById('editPlantTypeId').value = '';
+    document.getElementById('plantTypeName').value = '';
+    document.getElementById('plantTypeDesc').value = '';
+    selectEmoji('plantTypeEmoji', '🌱');
+    hideFormError('plantTypeFormError');
+    document.getElementById('savePlantTypeBtn').textContent = 'Save Plant Type';
+    document.getElementById('plantTypeModal').classList.add('is-open');
+    document.getElementById('plantTypeName').focus();
 }
 
-function openEditModal(id) {
-    const p = allProfiles.find(x => x.id === id);
-    if (!p) return;
+function openEditPlantTypeModal(id) {
+    const pt = allPlantTypes.find(x => x.id === id);
+    if (!pt) return;
 
-    document.getElementById('profileModalTitle').textContent = '✏️ Edit Plant Profile';
-    document.getElementById('editProfileId').value = p.id;
-    document.getElementById('profileName').value = p.name;
-    document.getElementById('profileDesc').value = p.description || '';
-    document.getElementById('moistureMin').value = p.moisture_min;
-    document.getElementById('moistureMax').value = p.moisture_max;
-    selectEmoji(p.emoji || '🌱');
-    onRangeChange();
-    hideFormError('profileFormError');
-    document.getElementById('saveProfileBtn').textContent = 'Save Changes';
-    document.getElementById('profileModal').classList.add('is-open');
+    document.getElementById('plantTypeModalTitle').textContent = '✏️ Edit Plant Type';
+    document.getElementById('editPlantTypeId').value = pt.id;
+    document.getElementById('plantTypeName').value = pt.name;
+    document.getElementById('plantTypeDesc').value = pt.description || '';
+    selectEmoji('plantTypeEmoji', pt.emoji || '🌱');
+    hideFormError('plantTypeFormError');
+    document.getElementById('savePlantTypeBtn').textContent = 'Save Changes';
+    document.getElementById('plantTypeModal').classList.add('is-open');
 }
 
-function closeProfileModal() {
-    document.getElementById('profileModal').classList.remove('is-open');
+function closePlantTypeModal() {
+    document.getElementById('plantTypeModal').classList.remove('is-open');
 }
 
-function openDeleteModal(id) {
-    const p = allProfiles.find(x => x.id === id);
-    if (!p) return;
+function openDeletePlantTypeModal(id) {
+    const pt = allPlantTypes.find(x => x.id === id);
+    if (!pt) return;
     deleteTargetId = id;
-    document.getElementById('deleteProfileName').textContent = (p.emoji || '🌱') + ' ' + p.name;
+    deleteTargetType = 'plant_type';
+    document.getElementById('deleteItemName').textContent = (pt.emoji || '🌱') + ' ' + pt.name;
+    document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete this plant type and all its varieties?';
+    
+    const count = pt.sensor_count || 0;
+    const warning = document.getElementById('deleteAssignedWarning');
+    document.getElementById('deleteAssignedCount').textContent = count;
+    warning.style.display = count > 0 ? 'block' : 'none';
 
-    const count = p.sensor_count || 0;
+    hideFormError('deleteError');
+    document.getElementById('deleteModal').classList.add('is-open');
+}
+
+// ============================================================
+// MODALS - VARIETY
+// ============================================================
+function openAddVarietyModal() {
+    document.getElementById('varietyModalTitle').textContent = '📋 Add Variety';
+    document.getElementById('editVarietyId').value = '';
+    document.getElementById('currentPlantTypeId').value = currentPlantTypeId;
+    document.getElementById('varietyName').value = '';
+    document.getElementById('varietyDesc').value = '';
+    document.getElementById('varietyMoistureMin').value = 30;
+    document.getElementById('varietyMoistureMax').value = 70;
+    document.getElementById('varietyLightMin').value = '';
+    document.getElementById('varietyLightMax').value = '';
+    document.getElementById('varietyTempMin').value = '';
+    document.getElementById('varietyTempMax').value = '';
+    onVarietyRangeChange('moisture');
+    hideFormError('varietyFormError');
+    document.getElementById('saveVarietyBtn').textContent = 'Save Variety';
+    document.getElementById('varietyModal').classList.add('is-open');
+    document.getElementById('varietyName').focus();
+}
+
+function openEditVarietyModal(id) {
+    const v = currentVarieties.find(x => x.id === id);
+    if (!v) return;
+
+    document.getElementById('varietyModalTitle').textContent = '✏️ Edit Variety';
+    document.getElementById('editVarietyId').value = v.id;
+    document.getElementById('currentPlantTypeId').value = currentPlantTypeId;
+    document.getElementById('varietyName').value = v.name;
+    document.getElementById('varietyDesc').value = v.description || '';
+    document.getElementById('varietyMoistureMin').value = v.moisture_min;
+    document.getElementById('varietyMoistureMax').value = v.moisture_max;
+    document.getElementById('varietyLightMin').value = v.light_min || '';
+    document.getElementById('varietyLightMax').value = v.light_max || '';
+    document.getElementById('varietyTempMin').value = v.temp_min || '';
+    document.getElementById('varietyTempMax').value = v.temp_max || '';
+    onVarietyRangeChange('moisture');
+    hideFormError('varietyFormError');
+    document.getElementById('saveVarietyBtn').textContent = 'Save Changes';
+    document.getElementById('varietyModal').classList.add('is-open');
+}
+
+function closeVarietyModal() {
+    document.getElementById('varietyModal').classList.remove('is-open');
+}
+
+function openDeleteVarietyModal(id) {
+    const v = currentVarieties.find(x => x.id === id);
+    if (!v) return;
+    deleteTargetId = id;
+    deleteTargetType = 'variety';
+    document.getElementById('deleteItemName').textContent = v.name;
+    document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete this variety?';
+    
+    const count = v.sensor_count || 0;
     const warning = document.getElementById('deleteAssignedWarning');
     document.getElementById('deleteAssignedCount').textContent = count;
     warning.style.display = count > 0 ? 'block' : 'none';
@@ -466,6 +915,7 @@ function openDeleteModal(id) {
 
 function closeDeleteModal() {
     deleteTargetId = null;
+    deleteTargetType = null;
     document.getElementById('deleteModal').classList.remove('is-open');
 }
 
@@ -477,40 +927,41 @@ document.querySelectorAll('.modal').forEach(m => {
 // ============================================================
 // RANGE SLIDER PREVIEW
 // ============================================================
-function onRangeChange() {
-    const min = parseInt(document.getElementById('moistureMin').value);
-    let max = parseInt(document.getElementById('moistureMax').value);
+function onVarietyRangeChange(type) {
+    if (type === 'moisture') {
+        const min = parseInt(document.getElementById('varietyMoistureMin').value);
+        let max = parseInt(document.getElementById('varietyMoistureMax').value);
 
-    // Clamp: max must always be > min
-    if (max <= min) {
-        max = Math.min(min + 5, 100);
-        document.getElementById('moistureMax').value = max;
+        if (max <= min) {
+            max = Math.min(min + 5, 100);
+            document.getElementById('varietyMoistureMax').value = max;
+        }
+
+        document.getElementById('varietyMinMoistureDisplay').textContent = min + '%';
+        document.getElementById('varietyMaxMoistureDisplay').textContent = max + '%';
+
+        const bar = document.getElementById('varietyMoisturePreviewBar');
+        bar.style.left = min + '%';
+        bar.style.width = (max - min) + '%';
     }
-
-    document.getElementById('minDisplay').textContent = min + '%';
-    document.getElementById('maxDisplay').textContent = max + '%';
-
-    const bar = document.getElementById('previewBar');
-    bar.style.left = min + '%';
-    bar.style.width = (max - min) + '%';
-
-    document.getElementById('previewRangeText').textContent = `${min}% – ${max}%`;
 }
 
 // ============================================================
 // EMOJI PICKER
 // ============================================================
-function buildEmojiPicker() {
-    const container = document.getElementById('emojiOptions');
+function buildEmojiPicker(containerId, inputId) {
+    const container = document.getElementById(containerId);
     container.innerHTML = EMOJI_OPTIONS.map(e =>
-        `<button type="button" class="emoji-btn" data-emoji="${e}" onclick="selectEmoji('${e}')">${e}</button>`
+        `<button type="button" class="emoji-btn" data-emoji="${e}" data-input="${inputId}" onclick="selectEmoji(this)">${e}</button>`
     ).join('');
 }
 
-function selectEmoji(emoji) {
-    document.getElementById('profileEmoji').value = emoji;
-    document.querySelectorAll('.emoji-btn').forEach(btn => {
-        btn.classList.toggle('selected', btn.dataset.emoji === emoji);
+function selectEmoji(btn) {
+    const emoji = btn.dataset.emoji;
+    const inputId = btn.dataset.input;
+    document.getElementById(inputId).value = emoji;
+    document.querySelectorAll('.emoji-btn').forEach(b => {
+        b.classList.toggle('selected', b === btn);
     });
 }
 
