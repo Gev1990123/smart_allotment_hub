@@ -77,7 +77,7 @@ class PumpCommand(BaseModel):
     seconds: int | None = None  # Required when action == "run"
 
 class SensorPlantAssign(BaseModel):
-    plant_profile_id: int
+    variety_id: int
 
 class SensorZoneAssign(BaseModel):
     zone_name: str | None = None

@@ -301,10 +301,11 @@ async def assign_plant_profile(
     body: SensorPlantAssign,
     current_user: Dict = Depends(get_current_user)
 ):
-    """Assign a plant profile to a moisture sensor"""
+    """Assign a plant variety to a moisture sensor"""
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Check sensor exists and get device
         cur.execute("""
             SELECT s.id, s.sensor_type, d.uid
             FROM sensors s JOIN devices d ON s.device_id = d.id
@@ -319,30 +320,39 @@ async def assign_plant_profile(
         if sensor[1] != "moisture":
             raise HTTPException(status_code=400, detail="Plant profiles only apply to moisture sensors")
 
-        cur.execute("SELECT id FROM plant_profiles WHERE id = %s;", (body.plant_profile_id,))
+        # Check variety exists
+        cur.execute("SELECT id FROM plant_varieties WHERE id = %s;", (body.variety_id,))
         if not cur.fetchone():
-            raise HTTPException(status_code=404, detail="Plant profile not found")
+            raise HTTPException(status_code=404, detail="Plant variety not found")
 
+        # Assign variety (column renamed from plant_profile_id to variety_id)
         cur.execute("""
-            INSERT INTO sensor_plant_assignments (sensor_id, plant_profile_id, assigned_by)
+            INSERT INTO sensor_plant_assignments (sensor_id, variety_id, assigned_by)
             VALUES (%s, %s, %s)
             ON CONFLICT (sensor_id) DO UPDATE
-                SET plant_profile_id = EXCLUDED.plant_profile_id,
+                SET variety_id = EXCLUDED.variety_id,
                     assigned_at = NOW(),
                     assigned_by = EXCLUDED.assigned_by;
-        """, (sensor_id, body.plant_profile_id, current_user["user_id"]))
+        """, (sensor_id, body.variety_id, current_user["user_id"]))
 
         conn.commit()
-        return {"message": "Plant profile assigned"}
+        return {"message": "Plant variety assigned"}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
 @router.delete("/{sensor_id}/plant-profile")
 async def remove_plant_profile(sensor_id: int, current_user: Dict = Depends(get_current_user)):
-    """Remove plant profile from a sensor (reverts to General default)"""
+    """Remove plant variety from a sensor (reverts to General default)"""
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Check sensor and access
         cur.execute("""
             SELECT d.uid FROM sensors s JOIN devices d ON s.device_id = d.id
             WHERE s.id = %s;
@@ -353,9 +363,16 @@ async def remove_plant_profile(sensor_id: int, current_user: Dict = Depends(get_
         if not auth.user_can_access_device(current_user["user_id"], row[0]):
             raise HTTPException(status_code=403, detail="Access denied")
 
+        # Delete assignment (sets to NULL, will use General defaults)
         cur.execute("DELETE FROM sensor_plant_assignments WHERE sensor_id = %s;", (sensor_id,))
         conn.commit()
-        return {"message": "Plant profile removed — sensor will use General defaults"}
+        return {"message": "Plant variety removed — sensor will use General defaults"}
+    except HTTPException:
+        conn.rollback()
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
 
@@ -363,21 +380,27 @@ async def remove_plant_profile(sensor_id: int, current_user: Dict = Depends(get_
 async def sensor_moisture_status(sensor_id: int, current_user: Dict = Depends(get_current_user)):
     """
     Return current moisture reading + whether it's ok/too_dry/too_wet
-    based on the assigned plant profile (falls back to General).
+    based on the assigned plant variety (falls back to General).
+    Also returns light and temperature constraints if available.
     """
     conn = get_connection()
     cur = conn.cursor()
     try:
         cur.execute("""
             SELECT s.last_value, s.unit, d.uid,
-                   COALESCE(pp.name,         gp.name)          AS profile_name,
-                   COALESCE(pp.moisture_min, gp.moisture_min)  AS moisture_min,
-                   COALESCE(pp.moisture_max, gp.moisture_max)  AS moisture_max
+                   pt.emoji,
+                   COALESCE(pt.name || ' - ' || pv.name, gp.name) AS profile_name,
+                   COALESCE(pv.moisture_min, gpv.moisture_min) AS moisture_min,
+                   COALESCE(pv.moisture_max, gpv.moisture_max) AS moisture_max,
+                   pv.light_min, pv.light_max,
+                   pv.temp_min, pv.temp_max
             FROM sensors s
             JOIN devices d ON s.device_id = d.id
             LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
-            LEFT JOIN plant_profiles pp  ON pp.id = spa.plant_profile_id
-            LEFT JOIN plant_profiles gp  ON gp.name = 'General'
+            LEFT JOIN plant_varieties pv ON pv.id = spa.variety_id
+            LEFT JOIN plant_types pt ON pt.id = pv.plant_type_id
+            LEFT JOIN plant_types gp ON gp.name = 'General'
+            LEFT JOIN plant_varieties gpv ON gpv.plant_type_id = gp.id AND gpv.name = 'General'
             WHERE s.id = %s;
         """, (sensor_id,))
         row = cur.fetchone()
@@ -387,11 +410,18 @@ async def sensor_moisture_status(sensor_id: int, current_user: Dict = Depends(ge
         if not auth.user_can_access_device(current_user["user_id"], row[2]):
             raise HTTPException(status_code=403, detail="Access denied")
 
-        value, unit, _, profile_name, moisture_min, moisture_max = row
+        (value, unit, device_uid, emoji, profile_name, 
+         moisture_min, moisture_max, light_min, light_max, 
+         temp_min, temp_max) = row
 
         if value is None:
-            return {"status": "no_data", "profile": profile_name}
+            return {
+                "status": "no_data",
+                "profile": profile_name,
+                "emoji": emoji
+            }
 
+        # Determine moisture status
         if value < float(moisture_min):
             moisture_status = "too_dry"
         elif value > float(moisture_max):
@@ -401,12 +431,26 @@ async def sensor_moisture_status(sensor_id: int, current_user: Dict = Depends(ge
 
         return {
             "sensor_id": sensor_id,
-            "value": value,
+            "value": float(value),
             "unit": unit,
             "status": moisture_status,
             "profile": profile_name,
-            "moisture_min": float(moisture_min),
-            "moisture_max": float(moisture_max)
+            "emoji": emoji,
+            "constraints": {
+                "moisture": {
+                    "min": float(moisture_min),
+                    "max": float(moisture_max),
+                    "status": moisture_status
+                },
+                "light": {
+                    "min": float(light_min) if light_min else None,
+                    "max": float(light_max) if light_max else None
+                } if (light_min or light_max) else None,
+                "temperature": {
+                    "min": float(temp_min) if temp_min else None,
+                    "max": float(temp_max) if temp_max else None
+                } if (temp_min or temp_max) else None
+            }
         }
     finally:
         conn.close()
@@ -421,6 +465,7 @@ async def sensor_moisture_events(
     conn = get_connection()
     cur = conn.cursor()
     try:
+        # Check access
         cur.execute("""
             SELECT d.uid FROM sensors s JOIN devices d ON s.device_id = d.id
             WHERE s.id = %s;
@@ -431,6 +476,7 @@ async def sensor_moisture_events(
         if not auth.user_can_access_device(current_user["user_id"], row[0]):
             raise HTTPException(status_code=403, detail="Access denied")
 
+        # Get events
         cur.execute("""
             SELECT reading, expected_min, expected_max, status, action_taken, created_at
             FROM moisture_events
@@ -440,17 +486,21 @@ async def sensor_moisture_events(
         """, (sensor_id, hours))
 
         rows = cur.fetchall()
-        return {"events": [
-            {
-                "reading": float(r[0]),
-                "expected_min": float(r[1]),
-                "expected_max": float(r[2]),
-                "status": r[3],
-                "action_taken": r[4],
-                "created_at": r[5].isoformat()
-            }
-            for r in rows
-        ]}
+        return {
+            "sensor_id": sensor_id,
+            "hours": hours,
+            "events": [
+                {
+                    "reading": float(r[0]),
+                    "expected_min": float(r[1]),
+                    "expected_max": float(r[2]),
+                    "status": r[3],
+                    "action_taken": r[4],
+                    "created_at": r[5].isoformat()
+                }
+                for r in rows
+            ]
+        }
     finally:
         conn.close()
 
