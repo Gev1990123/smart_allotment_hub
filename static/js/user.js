@@ -91,6 +91,7 @@ function renderUsers() {
                     <button class="btn-small" onclick="openEditModal(${u.id})">✏️ Edit</button>
                     <button class="btn-small btn-secondary" onclick="openSiteModal(${u.id})">🏡 Sites</button>
                     <button class="btn-small btn-danger" onclick="openDeleteModal(${u.id})">🗑️</button>
+                    <button class="btn-small btn-warning" onclick="disableUser(${u.id})">🚫 Disable</button>
                 </div>
             </td>
         </tr>`;
@@ -284,6 +285,21 @@ async function confirmDelete() {
         await loadUsers();
     } catch (e) {
         showFormError('deleteFormError', e.message);
+    }
+}
+
+async function disableUser(userId) {
+    if (!confirm("Are you sure you want to disable this user?")) return;
+    try {
+        const res = await fetch(`/api/users/${userId}/disable`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to disable user');
+        alert(`User ${userId} disabled successfully.`);
+        await loadUsers(); // Refresh table
+    } catch (e) {
+        alert(`Error: ${e.message}`);
     }
 }
 

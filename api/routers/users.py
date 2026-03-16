@@ -44,6 +44,18 @@ async def create_user(user_data: UserCreate, admin: Dict = Depends(require_sys_a
         "role": new_user[4]
     }
 
+@router.post("/{user_id}/disable")
+async def disable_user(user_id: int, admin: Dict = Depends(require_sys_admin_dep)):
+    """Disable a user account — sys_admin only"""
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE users SET is_active = FALSE WHERE id = %s;", (user_id,))
+    conn.commit()
+    conn.close()
+
+    return {"message": f"User {user_id} disabled"}
+
 @router.post("/{user_id}/assign-site/{site_id}")
 async def assign_user_to_site(user_id: int, site_id: int, admin: Dict = Depends(require_sys_admin_dep)):
     """Grant a user access to a site — sys_admin only"""

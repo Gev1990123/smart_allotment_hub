@@ -875,6 +875,14 @@ canvas {
     background: #c62828;
 }
 
+.btn-warning {
+    background: #ffb300;
+}
+
+.btn-warning:hover {
+    background: #ffa000;
+}
+
 .empty-state {
     text-align: center;
     padding: 60px 20px;
