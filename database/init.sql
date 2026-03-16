@@ -145,19 +145,20 @@ CREATE TABLE IF NOT EXISTS plant_profiles (
     moisture_min NUMERIC(5,2) NOT NULL,
     moisture_max NUMERIC(5,2) NOT NULL,
     description  TEXT,
+    emoji        VARCHAR(10) DEFAULT '🌱',
     created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Seed predefined profiles
-INSERT INTO plant_profiles (name, moisture_min, moisture_max, description) VALUES
-    ('General',    30, 70, 'Safe default for unknown plants'),
-    ('Tomato',     50, 75, 'Consistent moisture, dislikes drying out'),
-    ('Lettuce',    60, 80, 'Likes it consistently moist'),
-    ('Carrot',     35, 60, 'Dislikes waterlogging'),
-    ('Courgette',  50, 70, 'Steady moisture during fruiting'),
-    ('Potato',     40, 65, 'Moderate, avoid soggy soil'),
-    ('Herbs',      25, 50, 'Prefer drier conditions'),
-    ('Strawberry', 50, 70, 'Even moisture, avoid crown rot')
+INSERT INTO plant_profiles (name, moisture_min, moisture_max, description, emoji) VALUES
+    ('General',    30, 70, 'Safe default for unknown plants', '🌱'),
+    ('Tomato',     50, 75, 'Consistent moisture, dislikes drying out', '🍅'),
+    ('Lettuce',    60, 80, 'Likes it consistently moist', '🥬'),
+    ('Carrot',     35, 60, 'Dislikes waterlogging', '🥕'),
+    ('Courgette',  50, 70, 'Steady moisture during fruiting', '🌿'),
+    ('Potato',     40, 65, 'Moderate, avoid soggy soil', '🥔'),
+    ('Herbs',      25, 50, 'Prefer drier conditions', '🌿'),
+    ('Strawberry', 50, 70, 'Even moisture, avoid crown rot', '🍓')
 ON CONFLICT (name) DO NOTHING;
 
 -- Link a sensor to a plant profile (one profile per moisture sensor)
