@@ -575,6 +575,7 @@ function renderVarieties(varieties) {
                 <div style="flex: 1;">
                     <div class="variety-name">${escHtml(v.name)}</div>
                     ${v.description ? `<div style="font-size: 12px; color: #999; margin-top: 4px;">${escHtml(v.description)}</div>` : ''}
+                    ${v.sow_type ? `<div style="font-size: 12px; color: #999; margin-top: 4px;">${escHtml(v.sow_type)}</div>` : ''}
                 </div>
                 <div class="variety-badges">
                     <span class="sensors-count-badge">${v.sensor_count || 0} sensor${v.sensor_count !== 1 ? 's' : ''}</span>
@@ -691,6 +692,7 @@ function openAddVarietyModal() {
     document.getElementById('currentPlantTypeId').value = currentPlantTypeId;
     document.getElementById('varietyName').value = '';
     document.getElementById('varietyDesc').value = '';
+    document.getElementById('varietySowType').value = '';
     document.getElementById('varietyMoistureMin').value = 30;
     document.getElementById('varietyMoistureMax').value = 70;
     document.getElementById('varietyLightMin').value = '';
@@ -713,6 +715,7 @@ function openEditVarietyModal(id) {
     document.getElementById('currentPlantTypeId').value = currentPlantTypeId;
     document.getElementById('varietyName').value = v.name;
     document.getElementById('varietyDesc').value = v.description || '';
+    document.getElementById('varietySowType').value = v.sow_type || '';
     document.getElementById('varietyMoistureMin').value = v.moisture_min;
     document.getElementById('varietyMoistureMax').value = v.moisture_max;
     document.getElementById('varietyLightMin').value = v.light_min || '';
