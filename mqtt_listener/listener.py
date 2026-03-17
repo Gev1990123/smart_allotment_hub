@@ -146,7 +146,7 @@ def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
             COALESCE(pp.moisture_max, gp.moisture_max)  AS moisture_max
         FROM sensors s
         LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
-        LEFT JOIN plant_profiles pp  ON pp.id = spa.plant_profile_id
+        LEFT JOIN plant_varieties pv ON pv.id = spa.variety_id
         LEFT JOIN plant_profiles gp  ON gp.name = 'General'
         WHERE s.id = %s;
     """, (sensor_db_id,))
