@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS sensors (
     zone_name VARCHAR(100),
     last_value FLOAT,
     last_seen TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    registered_by INT REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT uq_device_sensor UNIQUE(device_id, sensor_name)
 );
 
@@ -136,71 +138,145 @@ CREATE INDEX IF NOT EXISTS idx_api_tokens_device_id ON api_tokens(device_id);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(active);
 
 -- ============================================
--- PLANT PROFILES
+-- PLANT PROFILES - NEW HIERARCHICAL STRUCTURE
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS plant_profiles (
-    id           SERIAL PRIMARY KEY,
-    name         VARCHAR(100) UNIQUE NOT NULL,
-    moisture_min NUMERIC(5,2) NOT NULL,
-    moisture_max NUMERIC(5,2) NOT NULL,
-    description  TEXT,
-    emoji        VARCHAR(10) DEFAULT '🌱',
-    variety      VARCHAR(100),
-    light_min    DECIMAL(5,2),
-    light_max    DECIMAL(5,2),
-    temp_min     DECIMAL(5,2),
-    temp_max     DECIMAL(5,2),
-    created_at   TIMESTAMPTZ DEFAULT NOW()
+-- Plant Types (e.g., Tomato, Lettuce, Carrot)
+CREATE TABLE IF NOT EXISTS plant_types (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    emoji VARCHAR(10) DEFAULT '🌱',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed predefined profiles
-INSERT INTO plant_profiles (name, moisture_min, moisture_max, description, emoji) VALUES
-    ('General',    30, 70, 'Safe default for unknown plants', '🌱'),
-    ('Tomato',     50, 75, 'Consistent moisture, dislikes drying out', '🍅'),
-    ('Lettuce',    60, 80, 'Likes it consistently moist', '🥬'),
-    ('Carrot',     35, 60, 'Dislikes waterlogging', '🥕'),
-    ('Courgette',  50, 70, 'Steady moisture during fruiting', '🌿'),
-    ('Potato',     40, 65, 'Moderate, avoid soggy soil', '🥔'),
-    ('Herbs',      25, 50, 'Prefer drier conditions', '🌿'),
-    ('Strawberry', 50, 70, 'Even moisture, avoid crown rot', '🍓')
+-- Plant Varieties (e.g., Tomato - Beefsteak, Tomato - Cherry)
+CREATE TABLE IF NOT EXISTS plant_varieties (
+    id SERIAL PRIMARY KEY,
+    plant_type_id INTEGER NOT NULL REFERENCES plant_types(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    moisture_min INTEGER NOT NULL DEFAULT 30 CHECK (moisture_min >= 0 AND moisture_min <= 100),
+    moisture_max INTEGER NOT NULL DEFAULT 70 CHECK (moisture_max >= 0 AND moisture_max <= 100),
+    light_min DECIMAL(8, 2),
+    light_max DECIMAL(8, 2),
+    temp_min DECIMAL(5, 2),
+    temp_max DECIMAL(5, 2),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT valid_moisture_range CHECK (moisture_min < moisture_max),
+    CONSTRAINT valid_light_range CHECK (light_min IS NULL OR light_max IS NULL OR light_min < light_max),
+    CONSTRAINT valid_temp_range CHECK (temp_min IS NULL OR temp_max IS NULL OR temp_min < temp_max),
+    UNIQUE(plant_type_id, name)
+);
+
+-- Create indexes for performance
+CREATE INDEX IF NOT EXISTS idx_plant_varieties_plant_type_id ON plant_varieties(plant_type_id);
+CREATE INDEX IF NOT EXISTS idx_plant_varieties_name ON plant_varieties(name);
+
+-- ============================================
+-- PLANT PROFILES DATA SEED
+-- ============================================
+
+-- Seed plant types (8 types from your existing data)
+INSERT INTO plant_types (id, name, description, emoji, created_at) VALUES
+    (1, 'General',     'Safe default for unknown plants',               '🌱', NOW()),
+    (2, 'Tomato',      'Tomato plants',                                 '🍅', NOW()),
+    (3, 'Lettuce',     'Leafy greens',                                  '🥬', NOW()),
+    (4, 'Carrot',      'Root vegetables',                               '🥕', NOW()),
+    (5, 'Courgette',   'Summer squash',                                 '🌿', NOW()),
+    (6, 'Potato',      'Tuberous vegetables',                           '🥔', NOW()),
+    (7, 'Herbs',       'Culinary herbs',                                '🌿', NOW()),
+    (8, 'Strawberry',  'Berry plants',                                  '🍓', NOW())
 ON CONFLICT (name) DO NOTHING;
 
--- Link a sensor to a plant profile (one profile per moisture sensor)
+-- Seed plant varieties (one default per type, using your original constraints)
+INSERT INTO plant_varieties (plant_type_id, name, description, moisture_min, moisture_max, created_at) VALUES
+    (1, 'General',      'Safe default for unknown plants',              30, 70, NOW()),
+    (2, 'Tomato',       'Consistent moisture, dislikes drying out',     50, 75, NOW()),
+    (3, 'Lettuce',      'Likes it consistently moist',                  60, 80, NOW()),
+    (4, 'Carrot',       'Dislikes waterlogging',                        35, 60, NOW()),
+    (5, 'Courgette',    'Steady moisture during fruiting',              50, 70, NOW()),
+    (6, 'Potato',       'Moderate, avoid soggy soil',                   40, 65, NOW()),
+    (7, 'Herbs',        'Prefer drier conditions',                      25, 50, NOW()),
+    (8, 'Strawberry',   'Even moisture, avoid crown rot',               50, 70, NOW())
+ON CONFLICT (plant_type_id, name) DO NOTHING;
+
+-- ============================================
+-- SENSOR-PLANT ASSIGNMENTS
+-- ============================================
+
+-- Link a sensor to a plant variety (one variety per moisture sensor)
 CREATE TABLE IF NOT EXISTS sensor_plant_assignments (
-    sensor_id        INT PRIMARY KEY REFERENCES sensors(id) ON DELETE CASCADE,
-    plant_profile_id INT NOT NULL REFERENCES plant_profiles(id),
-    assigned_at      TIMESTAMPTZ DEFAULT NOW(),
-    assigned_by      INT REFERENCES users(id)
+    sensor_id INT PRIMARY KEY REFERENCES sensors(id) ON DELETE CASCADE,
+    variety_id INT REFERENCES plant_varieties(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMPTZ DEFAULT NOW(),
+    assigned_by INT REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_sensor_plant_assignments_variety_id ON sensor_plant_assignments(variety_id);
+
+-- ============================================
+-- MOISTURE EVENTS
+-- ============================================
 
 -- Moisture event log — every reading evaluated and recorded here
 CREATE TABLE IF NOT EXISTS moisture_events (
-    id             BIGSERIAL,
-    sensor_id      INT NOT NULL REFERENCES sensors(id),
-    device_id      INT NOT NULL REFERENCES devices(id),
-    site_id        INT NOT NULL REFERENCES sites(id),
-    reading        NUMERIC(5,2) NOT NULL,
-    expected_min   NUMERIC(5,2) NOT NULL,
-    expected_max   NUMERIC(5,2) NOT NULL,
-    status         VARCHAR(10) NOT NULL CHECK (status IN ('too_dry', 'too_wet', 'ok')),
-    action_taken   VARCHAR(50),
+    id BIGSERIAL,
+    sensor_id INT NOT NULL REFERENCES sensors(id),
+    device_id INT NOT NULL REFERENCES devices(id),
+    site_id INT NOT NULL REFERENCES sites(id),
+    reading NUMERIC(5,2) NOT NULL,
+    expected_min NUMERIC(5,2) NOT NULL,
+    expected_max NUMERIC(5,2) NOT NULL,
+    status VARCHAR(10) NOT NULL CHECK (status IN ('too_dry', 'too_wet', 'ok')),
+    action_taken VARCHAR(50),
     last_action_at TIMESTAMPTZ,
-    created_at     TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-SELECT create_hypertable('moisture_events', 'created_at');
+-- Create hypertable for TimescaleDB (if available, otherwise just regular table)
+-- Note: This requires TimescaleDB extension
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' AND table_name = 'moisture_events'
+    ) AND NOT EXISTS (
+        SELECT FROM timescaledb_information.hypertables 
+        WHERE hypertable_name = 'moisture_events'
+    ) THEN
+        SELECT create_hypertable('moisture_events', 'created_at', if_not_exists => TRUE);
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    -- TimescaleDB not available, continue with regular table
+    NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_moisture_events_sensor ON moisture_events(sensor_id, created_at DESC);
-    
+
 -- ============================================
 -- UTILITY FUNCTIONS
 -- ============================================
+
 CREATE OR REPLACE FUNCTION cleanup_expired_tokens()
 RETURNS void AS $$
 BEGIN
     DELETE FROM api_tokens WHERE expires_at < NOW() AND expires_at IS NOT NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
+RETURNS void AS $$
+BEGIN
+    DELETE FROM sessions WHERE expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- DEFAULT DATA
+-- ============================================
 
 -- Insert default sys_admin user (password: admin123 - CHANGE THIS!)
 -- Password hash is bcrypt hash of 'admin123'
@@ -228,17 +304,10 @@ INSERT INTO user_site_assignments (user_id, site_id)
 SELECT id, 1 FROM users WHERE username = 'john'
 ON CONFLICT (user_id, site_id) DO NOTHING;
 
--- Clean up expired sessions function
-CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
-RETURNS void AS $$
-BEGIN
-    DELETE FROM sessions WHERE expires_at < NOW();
-END;
-$$ LANGUAGE plpgsql;
-
 -- ============================================
 -- COMMENTS
 -- ============================================
+
 COMMENT ON TABLE users IS 'User accounts for dashboard access';
 COMMENT ON TABLE user_site_assignments IS 'Maps users to sites they can access';
 COMMENT ON TABLE sessions IS 'Active user sessions';
@@ -249,6 +318,7 @@ COMMENT ON COLUMN api_tokens.user_id IS 'If token belongs to a user (for user AP
 COMMENT ON COLUMN api_tokens.device_id IS 'If token belongs to a device (for device data submission)';
 COMMENT ON COLUMN api_tokens.scopes IS 'Array of permission scopes (read:sensors, write:sensors, etc.)';
 COMMENT ON COLUMN api_tokens.name IS 'Human-readable name for the token';
-COMMENT ON TABLE plant_profiles IS 'Predefined moisture thresholds per plant type';
-COMMENT ON TABLE sensor_plant_assignments IS 'Links a moisture sensor to its plant profile';
+COMMENT ON TABLE plant_types IS 'Plant categories (Tomato, Lettuce, etc.)';
+COMMENT ON TABLE plant_varieties IS 'Plant varieties with specific constraints (Tomato - Beefsteak, etc.)';
+COMMENT ON TABLE sensor_plant_assignments IS 'Links a moisture sensor to its plant variety';
 COMMENT ON TABLE moisture_events IS 'Log of every moisture evaluation — ok, too_dry, or too_wet';
