@@ -141,9 +141,9 @@ def evaluate_moisture(conn, sensor_db_id: int, device_db_id: int, value: float):
     # Get thresholds — assigned profile wins, General is the fallback
     cur.execute("""
         SELECT
-            COALESCE(pp.name,         gp.name)          AS profile_name,
-            COALESCE(pp.moisture_min, gp.moisture_min)  AS moisture_min,
-            COALESCE(pp.moisture_max, gp.moisture_max)  AS moisture_max
+            COALESCE(pv.name,         gp.name)          AS profile_name,
+            COALESCE(pv.moisture_min, gp.moisture_min)  AS moisture_min,
+            COALESCE(pv.moisture_max, gp.moisture_max)  AS moisture_max
         FROM sensors s
         LEFT JOIN sensor_plant_assignments spa ON spa.sensor_id = s.id
         LEFT JOIN plant_varieties pv ON pv.id = spa.variety_id
