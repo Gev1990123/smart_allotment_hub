@@ -1383,6 +1383,174 @@ button:disabled {
    PLANT PROFILE — PAGE
 --------------------------------------------------------- */
 
+/* Enhanced plant profiles styling */
+.plant-type-view { display: none; }
+.plant-type-view.active { display: block; }
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #666;
+}
+
+.breadcrumb-back {
+    cursor: pointer;
+    color: #2e7d32;
+    text-decoration: none;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.breadcrumb-back:hover {
+    color: #1b5e20;
+}
+
+.plant-type-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.plant-type-card:hover {
+    border-color: #2e7d32;
+    box-shadow: 0 4px 12px rgba(46, 125, 50, 0.1);
+    transform: translateY(-2px);
+}
+
+.plant-type-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #2e7d32, #4caf50);
+}
+
+.plant-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.plant-type-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1b1b1b;
+}
+
+.plant-type-emoji {
+    font-size: 32px;
+}
+
+.plant-type-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: #666;
+    margin-top: 12px;
+}
+
+.plant-type-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.variety-card {
+    background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.variety-card:hover {
+    border-color: #2e7d32;
+    background: linear-gradient(135deg, #fffbf0 0%, #ffffff 100%);
+}
+
+.variety-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.variety-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1b1b1b;
+}
+
+.variety-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.env-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.env-stat {
+    font-size: 12px;
+}
+
+.env-stat-label {
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.env-stat-value {
+    color: #2e7d32;
+    font-weight: 700;
+    font-size: 14px;
+}
+
+/* Modal for variety form */
+.env-fields-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.form-group-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.field-help-text {
+    font-size: 11px;
+    color: #999;
+    margin-top: 3px;
+}
+
+
+
 .profiles-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
