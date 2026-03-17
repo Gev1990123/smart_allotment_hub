@@ -324,12 +324,9 @@ const EMOJI_OPTIONS = ['🌱','🍅','🥬','🥕','🌿','🫑','🥔','🍓','
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for full DOM + script load
-    setTimeout(() => {
-        buildEmojiPicker('typeEmojiOptions', 'plantTypeEmoji');
-        onVarietyRangeChange('moisture');
-        loadPlantTypes();
-    }, 50); // Small delay ensures all elements exist
+    buildEmojiPicker('typeEmojiOptions', 'plantTypeEmoji'); 
+    document.getElementById('plantTypeEmoji').value = '🌱'; 
+    loadPlantTypes();
 });
 
 // ============================================================
@@ -643,7 +640,7 @@ function openAddPlantTypeModal() {
     document.getElementById('editPlantTypeId').value = '';
     document.getElementById('plantTypeName').value = '';
     document.getElementById('plantTypeDesc').value = '';
-    selectEmoji('plantTypeEmoji', '🌱');
+    document.getElementById('plantTypeEmoji').value = '🌱';
     hideFormError('plantTypeFormError');
     document.getElementById('savePlantTypeBtn').textContent = 'Save Plant Type';
     document.getElementById('plantTypeModal').classList.add('is-open');
@@ -658,7 +655,7 @@ function openEditPlantTypeModal(id) {
     document.getElementById('editPlantTypeId').value = pt.id;
     document.getElementById('plantTypeName').value = pt.name;
     document.getElementById('plantTypeDesc').value = pt.description || '';
-    selectEmoji('plantTypeEmoji', pt.emoji || '🌱');
+    document.getElementById('plantTypeEmoji').value = pt.emoji || '🌱';
     hideFormError('plantTypeFormError');
     document.getElementById('savePlantTypeBtn').textContent = 'Save Changes';
     document.getElementById('plantTypeModal').classList.add('is-open');
