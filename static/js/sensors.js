@@ -66,25 +66,9 @@ async function loadSensors() {
 
 async function loadPlantProfiles() {
     try {
-        const res = await fetch('/api/plant-profiles/types');
+        const res = await fetch('/api/plant-profiles');
         const data = await res.json();
-        
-        if (data.plant_types && Array.isArray(data.plant_types)) {
-            allPlantProfiles = [];
-            
-            for (const type of data.plant_types) {
-                if (type.varieties && Array.isArray(type.varieties)) {
-                    type.varieties.forEach(variety => {
-                        allPlantProfiles.push({
-                            id: variety.id,
-                            name: `${type.name} - ${variety.name}`,
-                            emoji: type.emoji,
-                            description: variety.description
-                        });
-                    });
-                }
-            }
-        }
+        allPlantProfiles = data.plant_profiles || [];
     } catch (e) {
         console.error('Failed to load plant profiles:', e);
     }
