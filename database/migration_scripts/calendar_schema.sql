@@ -7,6 +7,7 @@
 -- ============================================
 -- Add timing columns to plant_varieties if not already present
 ALTER TABLE plant_varieties
+
 ADD COLUMN IF NOT EXISTS hardiness_zone VARCHAR(10);
 
 -- ============================================
@@ -118,8 +119,8 @@ SET
     days_to_harvest = 65,
     can_direct_sow = FALSE,
     prefers_transplant = TRUE,
-    min_temp_celsius = 15,
-    max_temp_celsius = 35
+    temp_min = 15,
+    temp_max = 35
 WHERE plant_type_id = 2 AND name = 'Tomato';
 
 -- Update lettuce variety with timings
@@ -150,7 +151,7 @@ SET
     days_to_harvest = 55,
     can_direct_sow = TRUE,
     prefers_transplant = FALSE,
-    min_temp_celsius = 15
+    temp_min = 15
 WHERE plant_type_id = 5 AND name = 'Courgette';
 
 -- Update potato variety with timings
