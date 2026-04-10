@@ -89,3 +89,9 @@ def predictions_page(
         "predictions.html",
         {"request": request, "device_id": device_id, "user": current_user},
     )
+
+@router.get("/garden-calendar")
+def garden_calendar_page(request: Request, current_user: Optional[Dict] = Depends(get_optional_user)):
+    if not current_user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse("calendar.html", {"request": request, "user": current_user})

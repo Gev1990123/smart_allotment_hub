@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Garden Calendar - Smart Allotment</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>🌱 Smart Allotment - Garden Calendar</h1>
+  </header>
+
+  <nav>
+    <div class="nav-links">
+        <a href="/">📊 Dashboard</a>
+        <a href="/devices">📡 Devices</a>
+        <a href="/sites">🏡 Sites</a>
+        <a href="/sensors">🔧 Sensors</a>
+        {% if user.role == 'sys_admin' %}
+        <a href="/plant-profiles">🌿 Plant Profiles</a>
+        <a href="/users">👤 Users</a>
+        {% endif %}
+        <a href="/garden-calendar" class="active">🌱 Garden Calendar</a>
+    </div>
+    <div class="nav-user">
+      <button onclick="logout()" class="btn-secondary">Logout</button>
+    </div>
+  </nav>
+
+  <main>
+    <div class="page-selector">
+      <div style="flex: 1;">
+        <h2 style="margin: 0; font-size: 20px;">🌱 Garden Calendar</h2>
+        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+          Plan crops, view timelines, and track plantings
+        </p>
+      </div>
+    </div>
+
+    <div id="garden-calendar-root"></div>
+  </main>
+
+  <script type="module" src="/static/js/garden-calendar.bundle.js"></script>
+</body>
+</html>
