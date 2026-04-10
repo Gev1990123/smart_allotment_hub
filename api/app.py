@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import mqtt_publisher
 
-from routers import auth, users, tokens, devices, sensors, sites, plant_profiles, predictions, ui
+from routers import auth, users, tokens, devices, sensors, sites, plant_profiles, predictions, ui, calendar
 
 app = FastAPI(docs_url=None, redoc_url=None, title="Smart Allotment API")
 
@@ -44,3 +44,4 @@ app.include_router(sites.router)
 app.include_router(plant_profiles.router)
 app.include_router(predictions.router)
 app.include_router(ui.router)
+app.include_router(calendar.router)
