@@ -310,15 +310,34 @@ class GardenCalendar {
     async handlePlanSubmit(e) {
         e.preventDefault();
 
+        // Get form values with fallbacks
+        const varietySelect = document.querySelector('select[name="plant_variety_id"]');
+        const bedInput = document.querySelector('input[name="bed_location"]');
+        const seedDateInput = document.querySelector('input[name="seed_start_date"]');
+        const quantityInput = document.querySelector('input[name="quantity_planted"]');
+        const notesInput = document.querySelector('input[name="notes"]');
+
+        // Validate inputs exist
+        if (!varietySelect || !varietySelect.value) {
+            this.showError('Please select a plant variety');
+            return;
+        }
+        if (!bedInput || !bedInput.value) {
+            this.showError('Please enter a bed location');
+            return;
+        }
+        if (!seedDateInput || !seedDateInput.value) {
+            this.showError('Please select a seed start date');
+            return;
+        }
+
         const formData = {
             site_id: this.selectedSite,
-            plant_variety_id: parseInt(document.querySelector('select[name="plant_variety_id"]').value),
-            bed_location: document.querySelector('input[name="bed_location"]').value,
-            seed_start_date: document.querySelector('input[name="seed_start_date"]').value,
-            quantity_planted: parseInt(
-                document.querySelector('input[name="quantity_planted"]').value
-            ),
-            notes: document.querySelector('textarea[name="notes"]').value,
+            plant_variety_id: parseInt(varietySelect.value),
+            bed_location: bedInput.value,
+            seed_start_date: seedDateInput.value,
+            quantity_planted: quantityInput ? parseInt(quantityInput.value) || 1 : 1,
+            notes: notesInput ? notesInput.value : '',
         };
 
         try {
@@ -335,11 +354,14 @@ class GardenCalendar {
                 this.companions = [];
                 this.closePlanForm();
                 await this.fetchCrops();
+                this.showSuccess('Crop planted successfully!');
             } else {
-                this.showError('Failed to plant crop');
+                const error = await res.json();
+                this.showError(error.detail || 'Failed to plant crop');
             }
         } catch (err) {
-            this.showError('Error planting crop');
+            console.error('Error planting crop:', err);
+            this.showError('Error planting crop: ' + err.message);
         }
     }
 
@@ -358,6 +380,7 @@ class GardenCalendar {
     }
 
     showError(message) {
+        console.error('Error:', message);
         const container = document.querySelector('.error-message');
         if (container) {
             container.textContent = message;
@@ -365,6 +388,24 @@ class GardenCalendar {
             setTimeout(() => {
                 container.style.display = 'none';
             }, 5000);
+        } else {
+            alert(message);
+        }
+    }
+
+    showSuccess(message) {
+        console.log('Success:', message);
+        // Show in error container temporarily (we can style it differently)
+        const container = document.querySelector('.error-message');
+        if (container) {
+            container.textContent = '✓ ' + message;
+            container.style.display = 'block';
+            container.style.background = '#e8f5e9';
+            container.style.color = '#2e7d32';
+            container.style.borderLeft = '4px solid #2e7d32';
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 3000);
         }
     }
 
@@ -387,17 +428,31 @@ class GardenCalendar {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🌱 Garden Calendar initializing...');
     const calendar = new GardenCalendar();
+
+    // Debug: Check if elements exist
+    console.log('Checking form elements:');
+    console.log('  - Plan button:', !!document.querySelector('button[data-action="open-plan"]'));
+    console.log('  - Cancel button:', !!document.querySelector('button[data-action="cancel-plan"]'));
+    console.log('  - Plant type select:', !!document.querySelector('select[name="plant_type_id"]'));
+    console.log('  - Variety select:', !!document.querySelector('select[name="plant_variety_id"]'));
+    console.log('  - Seed date input:', !!document.querySelector('input[name="seed_start_date"]'));
+    console.log('  - Plan form:', !!document.querySelector('form[data-form="plan-crop"]'));
 
     // Wire up event listeners
     const planBtn = document.querySelector('button[data-action="open-plan"]');
     if (planBtn) {
         planBtn.addEventListener('click', () => calendar.openPlanForm());
+    } else {
+        console.warn('⚠️  Plan button not found');
     }
 
     const cancelBtn = document.querySelector('button[data-action="cancel-plan"]');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => calendar.closePlanForm());
+    } else {
+        console.warn('⚠️  Cancel button not found');
     }
 
     const plantTypeSelect = document.querySelector('select[name="plant_type_id"]');
@@ -407,6 +462,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 calendar.fetchVarietiesForType(parseInt(e.target.value));
             }
         });
+    } else {
+        console.warn('⚠️  Plant type select not found');
     }
 
     const varietySelect = document.querySelector('select[name="plant_variety_id"]');
@@ -416,6 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 calendar.fetchCompanions(parseInt(e.target.value));
             }
         });
+    } else {
+        console.warn('⚠️  Variety select not found');
     }
 
     const seedDateInput = document.querySelector('input[name="seed_start_date"]');
@@ -428,23 +487,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 calendar.fetchTimeline(varietyId, e.target.value);
             }
         });
+    } else {
+        console.warn('⚠️  Seed date input not found');
     }
 
     const planForm = document.querySelector('form[data-form="plan-crop"]');
     if (planForm) {
         planForm.addEventListener('submit', (e) => calendar.handlePlanSubmit(e));
+    } else {
+        console.warn('⚠️  Plan form not found');
     }
 
     const prevBtn = document.querySelector('button[data-action="prev-month"]');
     if (prevBtn) {
         prevBtn.addEventListener('click', () => calendar.previousMonth());
+    } else {
+        console.warn('⚠️  Previous month button not found');
     }
 
     const nextBtn = document.querySelector('button[data-action="next-month"]');
     if (nextBtn) {
         nextBtn.addEventListener('click', () => calendar.nextMonth());
+    } else {
+        console.warn('⚠️  Next month button not found');
     }
 
     // Store calendar instance globally for debugging
     window.gardenCalendar = calendar;
+    console.log('✅ Garden Calendar ready! (window.gardenCalendar available)');
 });
