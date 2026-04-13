@@ -356,12 +356,18 @@ class GardenCalendar {
                 await this.fetchCrops();
                 this.showSuccess('Crop planted successfully!');
             } else {
-                const error = await res.json();
-                this.showError(error.detail || 'Failed to plant crop');
+                try {
+                    const error = await res.json();
+                    const errorMsg = error.detail || error.message || 'Failed to plant crop';
+                    this.showError(String(errorMsg));
+                } catch {
+                    this.showError(`Failed to plant crop (HTTP ${res.status})`);
+                }
             }
         } catch (err) {
             console.error('Error planting crop:', err);
-            this.showError('Error planting crop: ' + err.message);
+            const errorMsg = err && err.message ? String(err.message) : 'Unknown error';
+            this.showError('Error planting crop: ' + errorMsg);
         }
     }
 
@@ -380,25 +386,30 @@ class GardenCalendar {
     }
 
     showError(message) {
-        console.error('Error:', message);
+        // Ensure message is a string
+        const msg = String(message || 'An error occurred');
+        console.error('Error:', msg);
         const container = document.querySelector('.error-message');
         if (container) {
-            container.textContent = message;
+            container.textContent = msg;
             container.style.display = 'block';
+            container.style.background = '#ffebee';
+            container.style.color = '#c62828';
+            container.style.borderLeft = '4px solid #c62828';
             setTimeout(() => {
                 container.style.display = 'none';
             }, 5000);
         } else {
-            alert(message);
+            alert(msg);
         }
     }
 
     showSuccess(message) {
-        console.log('Success:', message);
-        // Show in error container temporarily (we can style it differently)
+        const msg = String(message || 'Success!');
+        console.log('Success:', msg);
         const container = document.querySelector('.error-message');
         if (container) {
-            container.textContent = '✓ ' + message;
+            container.textContent = '✓ ' + msg;
             container.style.display = 'block';
             container.style.background = '#e8f5e9';
             container.style.color = '#2e7d32';
