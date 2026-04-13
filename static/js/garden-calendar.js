@@ -358,16 +358,18 @@ class GardenCalendar {
             } else {
                 try {
                     const error = await res.json();
-                    const errorMsg = error.detail || error.message || 'Failed to plant crop';
+                    console.error('API Error Response:', error);
+                    const errorMsg = error.detail || error.message || `Failed to plant crop (HTTP ${res.status})`;
                     this.showError(String(errorMsg));
-                } catch {
+                } catch (parseError) {
+                    console.error('Failed to parse error response:', parseError);
                     this.showError(`Failed to plant crop (HTTP ${res.status})`);
                 }
             }
         } catch (err) {
-            console.error('Error planting crop:', err);
-            const errorMsg = err && err.message ? String(err.message) : 'Unknown error';
-            this.showError('Error planting crop: ' + errorMsg);
+            console.error('Network/Form Error:', err);
+            const errorMsg = err && err.message ? String(err.message) : 'Unknown error occurred';
+            this.showError('Error: ' + errorMsg);
         }
     }
 
@@ -386,8 +388,29 @@ class GardenCalendar {
     }
 
     showError(message) {
-        // Ensure message is a string
-        const msg = String(message || 'An error occurred');
+        // Safely convert message to string, handling any type
+        let msg = 'An error occurred';
+        try {
+            if (message === null || message === undefined) {
+                msg = 'An error occurred';
+            } else if (typeof message === 'string') {
+                msg = message;
+            } else if (typeof message === 'object') {
+                // If it's an object, try to extract error info
+                if (message.message) {
+                    msg = String(message.message);
+                } else if (message.detail) {
+                    msg = String(message.detail);
+                } else {
+                    msg = JSON.stringify(message);
+                }
+            } else {
+                msg = String(message);
+            }
+        } catch (e) {
+            msg = 'An error occurred';
+        }
+        
         console.error('Error:', msg);
         const container = document.querySelector('.error-message');
         if (container) {
