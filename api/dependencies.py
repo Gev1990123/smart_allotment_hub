@@ -15,13 +15,25 @@ async def get_current_user(session_token: Optional[str] = Cookie(None)) -> Dict[
         )
 
     user = auth.validate_session(session_token)
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session"
         )
+    
+    user_id = user.get("id") or user.get("user_id")
 
-    return user
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session: user missing id"
+        )
+
+    return {
+        "id": user_id,
+        **user  # keep other fields if needed
+    }
 
 
 async def get_optional_user(session_token: Optional[str] = Cookie(None)) -> Optional[Dict[str, Any]]:
