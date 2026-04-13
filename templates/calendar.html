@@ -1,45 +1,154 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Garden Calendar - Smart Allotment</title>
-  <link rel="stylesheet" href="/static/css/styles.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Calendar - Smart Allotment</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-  <header>
-    <h1>🌱 Smart Allotment - Garden Calendar</h1>
-  </header>
+    <header>
+        <h1>🌱 Smart Allotment Hub</h1>
+    </header>
 
-  <nav>
-    <div class="nav-links">
-        <a href="/">📊 Dashboard</a>
-        <a href="/devices">📡 Devices</a>
-        <a href="/sites">🏡 Sites</a>
-        <a href="/sensors">🔧 Sensors</a>
-        {% if user.role == 'sys_admin' %}
-        <a href="/plant-profiles">🌿 Plant Profiles</a>
-        <a href="/users">👤 Users</a>
-        {% endif %}
-        <a href="/garden-calendar" class="active">🌱 Garden Calendar</a>
-    </div>
-    <div class="nav-user">
-      <button onclick="logout()" class="btn-secondary">Logout</button>
-    </div>
-  </nav>
+    <nav>
+        <div class="nav-links">
+            <a href="/">📊 Dashboard</a>
+            <a href="/devices">📡 Devices</a>
+            <a href="/sites">🏡 Sites</a>
+            <a href="/sensors">🔧 Sensors</a>
+            {% if user.role == 'sys_admin' %}
+            <a href="/plant-profiles">🌿 Plant Profiles</a>
+            <a href="/users">👤 Users</a>
+            {% endif %}
+            <a href="/garden-calendar" class="active">🌱 Garden Calendar</a>
+        </div>
+        <div class="nav-user">
+            <button onclick="logout()" class="btn-secondary">Logout</button>
+        </div>
+    </nav>
 
-  <main>
-    <div class="page-selector">
-      <div style="flex: 1;">
-        <h2 style="margin: 0; font-size: 20px;">🌱 Garden Calendar</h2>
-        <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
-          Plan crops, view timelines, and track plantings
-        </p>
-      </div>
-    </div>
+    <main>
+        <div class="page-selector">
+            <div style="flex: 1;">
+                <h2 style="margin: 0; font-size: 20px;">🌱 Garden Calendar</h2>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">
+                    Plan crops, view timelines, track plantings, and discover companion plants
+                </p>
+            </div>
+            <button class="btn-calendar" data-action="open-plan">
+                ➕ Plan Crop
+            </button>
+        </div>
 
-    <div id="garden-calendar-root"></div>
-  </main>
+        <div class="calendar-container">
+            <!-- Error message -->
+            <div class="error-message" style="display: none;"></div>
 
-  <script type="module" src="/static/js/garden-calendar.bundle.js"></script>
+            <!-- Site selector -->
+            <div class="site-selector">
+                <label>Select Site</label>
+                <select></select>
+            </div>
+
+            <!-- Plan crop form -->
+            <div class="form-container" style="display: none;">
+                <h2>Plan New Crop</h2>
+                <form data-form="plan-crop" class="form-grid">
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Plant Type</label>
+                            <select name="plant_type_id">
+                                <option value="">Select type...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Variety</label>
+                            <select name="plant_variety_id">
+                                <option value="">Select variety...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Seed Start Date</label>
+                            <input type="date" name="seed_start_date" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Bed Location</label>
+                            <input
+                                type="text"
+                                name="bed_location"
+                                placeholder="e.g. Bed A, Pot 1"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" name="quantity_planted" min="1" value="1" />
+                        </div>
+                        <div class="form-group">
+                            <label>Notes (optional)</label>
+                            <input type="text" name="notes" placeholder="Any special notes..." />
+                        </div>
+                    </div>
+
+                    <!-- Timeline will render here -->
+                    <div class="timeline-box" style="display: none;"></div>
+
+                    <!-- Companions will render here -->
+                    <div class="companions-box" style="display: none;"></div>
+
+                    <div class="form-buttons">
+                        <button type="submit" class="btn-submit">Plant Crop</button>
+                        <button type="button" class="btn-cancel" data-action="cancel-plan">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Calendar navigation -->
+            <div class="calendar-nav">
+                <button data-action="prev-month">← Prev</button>
+                <h2></h2>
+                <button data-action="next-month">Next →</button>
+            </div>
+
+            <!-- Calendar grid -->
+            <div class="calendar-grid"></div>
+
+            <!-- Crop detail will render here -->
+            <div class="crop-detail" style="display: none;"></div>
+        </div>
+    </main>
+
+    <!-- Populate plant types in form -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Load plant types for the form
+            try {
+                const res = await fetch('/api/plant-profiles/types');
+                const data = await res.json();
+                const select = document.querySelector('select[name="plant_type_id"]');
+                if (select) {
+                    select.innerHTML =
+                        '<option value="">Select type...</option>' +
+                        (data.plant_types || [])
+                            .map((t) => `<option value="${t.id}">${t.emoji} ${t.name}</option>`)
+                            .join('');
+                }
+            } catch (err) {
+                console.error('Failed to load plant types:', err);
+            }
+        });
+    </script>
+
+    <!-- Main calendar script -->
+    <script src="/static/js/garden-calendar.js"></script>
 </body>
 </html>
