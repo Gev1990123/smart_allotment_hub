@@ -254,7 +254,7 @@ async def delete_crop(
     conn = get_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT crop_name FROM (SELECT id, plant_variety_id FROM planted_crops WHERE id = %s) AS pc;", (crop_id,))
+        cur.execute("SELECT id FROM (SELECT id, plant_variety_id FROM planted_crops WHERE id = %s) AS pc;", (crop_id,))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Crop not found")
         
