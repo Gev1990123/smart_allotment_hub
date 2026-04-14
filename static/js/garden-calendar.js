@@ -238,13 +238,15 @@ class GardenCalendar {
     }
  
     getCropsForDate(day) {
-        const dateStr = new Date(
+        const d = new Date(
             this.currentMonth.getFullYear(),
             this.currentMonth.getMonth(),
             day
-        )
-            .toISOString()
-            .split('T')[0];
+        );
+
+        const dateStr = d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
  
         return this.crops.filter(
             (crop) =>
