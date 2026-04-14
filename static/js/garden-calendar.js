@@ -1,5 +1,3 @@
-// Garden Calendar - Vanilla JavaScript (No React, No Bundling)
-
 class GardenCalendar {
     constructor() {
         this.currentMonth = new Date();
@@ -12,16 +10,16 @@ class GardenCalendar {
         this.timeline = null;
         this.companions = [];
         this.loading = false;
-
+ 
         this.init();
     }
-
+ 
     async init() {
         await this.fetchSites();
         await this.fetchPlantTypes();
         this.renderCalendar();
     }
-
+ 
     async fetchSites() {
         try {
             const res = await fetch('/api/sites');
@@ -36,7 +34,7 @@ class GardenCalendar {
             this.showError('Failed to load sites');
         }
     }
-
+ 
     async fetchPlantTypes() {
         try {
             const res = await fetch('/api/plant-profiles/types');
@@ -46,7 +44,7 @@ class GardenCalendar {
             this.showError('Failed to load plant types');
         }
     }
-
+ 
     async fetchCrops() {
         try {
             this.loading = true;
@@ -60,7 +58,7 @@ class GardenCalendar {
             this.loading = false;
         }
     }
-
+ 
     async fetchVarietiesForType(typeId) {
         try {
             const res = await fetch(`/api/plant-profiles/types/${typeId}/varieties`);
@@ -71,7 +69,7 @@ class GardenCalendar {
             console.error('Failed to load varieties:', err);
         }
     }
-
+ 
     async fetchTimeline(varietyId, seedDate) {
         try {
             const res = await fetch(
@@ -84,7 +82,7 @@ class GardenCalendar {
             console.error('Failed to fetch timeline:', err);
         }
     }
-
+ 
     async fetchCompanions(varietyId) {
         try {
             const res = await fetch(`/api/calendar/companions/${varietyId}`);
@@ -95,40 +93,40 @@ class GardenCalendar {
             console.error('Failed to fetch companions:', err);
         }
     }
-
+ 
     renderSiteSelector() {
         const selector = document.querySelector('.site-selector select');
         if (!selector) return;
-
+ 
         selector.innerHTML = this.sites
             .map(
                 (site) =>
                     `<option value="${site.id}">${site.friendly_name || site.site_code}</option>`
             )
             .join('');
-
+ 
         selector.value = this.selectedSite;
         selector.addEventListener('change', (e) => {
             this.selectedSite = parseInt(e.target.value);
             this.fetchCrops();
         });
     }
-
+ 
     renderVarieties() {
         const select = document.querySelector('select[name="plant_variety_id"]');
         if (!select) return;
-
+ 
         select.innerHTML =
             '<option value="">Select variety...</option>' +
             this.varieties
                 .map((v) => `<option value="${v.id}">${v.name}</option>`)
                 .join('');
     }
-
+ 
     renderTimeline() {
         const container = document.querySelector('.timeline-box');
         if (!container || !this.timeline) return;
-
+ 
         container.innerHTML = `
             <strong>Timeline</strong>
             <div class="timeline-grid">
@@ -153,16 +151,16 @@ class GardenCalendar {
             </div>
         `;
     }
-
+ 
     renderCompanions() {
         const container = document.querySelector('.companions-box');
         if (!container) return;
-
+ 
         if (this.companions.length === 0) {
             container.style.display = 'none';
             return;
         }
-
+ 
         container.style.display = 'block';
         container.innerHTML = `
             <strong>Companion Plants</strong>
@@ -180,33 +178,33 @@ class GardenCalendar {
             </div>
         `;
     }
-
+ 
     renderCalendar() {
         const daysInMonth = (date) =>
             new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
         const firstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
-
+ 
         const monthName = this.currentMonth.toLocaleDateString('en-US', {
             month: 'long',
             year: 'numeric',
         });
-
+ 
         // Update month header
         const navH2 = document.querySelector('.calendar-nav h2');
         if (navH2) navH2.textContent = monthName;
-
+ 
         // Generate calendar grid
         let html = '';
         const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         dayHeaders.forEach((day) => {
             html += `<div class="calendar-header-day">${day}</div>`;
         });
-
+ 
         // Empty cells
         for (let i = 0; i < firstDayOfMonth(this.currentMonth); i++) {
             html += '<div></div>';
         }
-
+ 
         // Day cells
         for (let day = 1; day <= daysInMonth(this.currentMonth); day++) {
             const dayCrops = this.getCropsForDate(day);
@@ -224,7 +222,7 @@ class GardenCalendar {
                 </div>
             `;
         }
-
+ 
         const grid = document.querySelector('.calendar-grid');
         if (grid) {
             grid.innerHTML = html;
@@ -238,7 +236,7 @@ class GardenCalendar {
             });
         }
     }
-
+ 
     getCropsForDate(day) {
         const dateStr = new Date(
             this.currentMonth.getFullYear(),
@@ -247,7 +245,7 @@ class GardenCalendar {
         )
             .toISOString()
             .split('T')[0];
-
+ 
         return this.crops.filter(
             (crop) =>
                 crop.seed_start_date === dateStr ||
@@ -255,11 +253,11 @@ class GardenCalendar {
                 crop.transplant_date === dateStr
         );
     }
-
+ 
     showCropDetail(crop) {
         const container = document.querySelector('.crop-detail');
         if (!container) return;
-
+ 
         container.innerHTML = `
             <div class="crop-detail-header">
                 <h3>${crop.emoji} ${crop.crop_name}</h3>
@@ -297,26 +295,68 @@ class GardenCalendar {
                     <div class="crop-detail-value">${crop.status}</div>
                 </div>
             </div>
+            <div class="crop-detail-actions">
+                <button class="crop-detail-delete">🗑️ Delete Crop</button>
+            </div>
         `;
-
+ 
         container.style.display = 'block';
+        
         container.querySelector('.crop-detail-close').addEventListener('click', () => {
             container.style.display = 'none';
         });
-
+ 
+        container.querySelector('.crop-detail-delete').addEventListener('click', () => {
+            if (confirm(`Are you sure you want to delete "${crop.crop_name}"? This cannot be undone.`)) {
+                this.deleteCrop(crop.id);
+            }
+        });
+ 
         this.selectedCrop = crop;
     }
-
+ 
+    async deleteCrop(cropId) {
+        try {
+            const res = await fetch(`/api/calendar/crops/${cropId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+            });
+ 
+            if (res.ok) {
+                this.showSuccess('Crop deleted successfully!');
+                const container = document.querySelector('.crop-detail');
+                if (container) {
+                    container.style.display = 'none';
+                }
+                await this.fetchCrops();
+            } else {
+                try {
+                    const error = await res.json();
+                    console.error('API Error Response:', error);
+                    const errorMsg = error.detail || error.message || `Failed to delete crop (HTTP ${res.status})`;
+                    this.showError(String(errorMsg));
+                } catch (parseError) {
+                    console.error('Failed to parse error response:', parseError);
+                    this.showError(`Failed to delete crop (HTTP ${res.status})`);
+                }
+            }
+        } catch (err) {
+            console.error('Network/Delete Error:', err);
+            const errorMsg = err && err.message ? String(err.message) : 'Unknown error occurred';
+            this.showError('Error: ' + errorMsg);
+        }
+    }
+ 
     async handlePlanSubmit(e) {
         e.preventDefault();
-
+ 
         // Get form values with fallbacks
         const varietySelect = document.querySelector('select[name="plant_variety_id"]');
         const bedInput = document.querySelector('input[name="bed_location"]');
         const seedDateInput = document.querySelector('input[name="seed_start_date"]');
         const quantityInput = document.querySelector('input[name="quantity_planted"]');
         const notesInput = document.querySelector('input[name="notes"]');
-
+ 
         // Validate inputs exist
         if (!varietySelect || !varietySelect.value) {
             this.showError('Please select a plant variety');
@@ -330,7 +370,7 @@ class GardenCalendar {
             this.showError('Please select a seed start date');
             return;
         }
-
+ 
         const formData = {
             site_id: this.selectedSite,
             plant_variety_id: parseInt(varietySelect.value),
@@ -339,14 +379,14 @@ class GardenCalendar {
             quantity_planted: quantityInput ? parseInt(quantityInput.value) || 1 : 1,
             notes: notesInput ? notesInput.value : '',
         };
-
+ 
         try {
             const res = await fetch('/api/calendar/crops/plant', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
             });
-
+ 
             if (res.ok) {
                 // Reset form
                 e.target.reset();
@@ -372,21 +412,21 @@ class GardenCalendar {
             this.showError('Error: ' + errorMsg);
         }
     }
-
+ 
     openPlanForm() {
         const form = document.querySelector('.form-container');
         if (form) {
             form.style.display = 'block';
         }
     }
-
+ 
     closePlanForm() {
         const form = document.querySelector('.form-container');
         if (form) {
             form.style.display = 'none';
         }
     }
-
+ 
     showError(message) {
         // Safely convert message to string, handling any type
         let msg = 'An error occurred';
@@ -426,7 +466,7 @@ class GardenCalendar {
             alert(msg);
         }
     }
-
+ 
     showSuccess(message) {
         const msg = String(message || 'Success!');
         console.log('Success:', msg);
@@ -442,7 +482,7 @@ class GardenCalendar {
             }, 3000);
         }
     }
-
+ 
     previousMonth() {
         this.currentMonth = new Date(
             this.currentMonth.getFullYear(),
@@ -450,7 +490,7 @@ class GardenCalendar {
         );
         this.renderCalendar();
     }
-
+ 
     nextMonth() {
         this.currentMonth = new Date(
             this.currentMonth.getFullYear(),
@@ -459,12 +499,12 @@ class GardenCalendar {
         this.renderCalendar();
     }
 }
-
+ 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🌱 Garden Calendar initializing...');
     const calendar = new GardenCalendar();
-
+ 
     // Debug: Check if elements exist
     console.log('Checking form elements:');
     console.log('  - Plan button:', !!document.querySelector('button[data-action="open-plan"]'));
@@ -473,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('  - Variety select:', !!document.querySelector('select[name="plant_variety_id"]'));
     console.log('  - Seed date input:', !!document.querySelector('input[name="seed_start_date"]'));
     console.log('  - Plan form:', !!document.querySelector('form[data-form="plan-crop"]'));
-
+ 
     // Wire up event listeners
     const planBtn = document.querySelector('button[data-action="open-plan"]');
     if (planBtn) {
@@ -481,14 +521,14 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('⚠️  Plan button not found');
     }
-
+ 
     const cancelBtn = document.querySelector('button[data-action="cancel-plan"]');
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => calendar.closePlanForm());
     } else {
         console.warn('⚠️  Cancel button not found');
     }
-
+ 
     const plantTypeSelect = document.querySelector('select[name="plant_type_id"]');
     if (plantTypeSelect) {
         plantTypeSelect.addEventListener('change', (e) => {
@@ -499,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('⚠️  Plant type select not found');
     }
-
+ 
     const varietySelect = document.querySelector('select[name="plant_variety_id"]');
     if (varietySelect) {
         varietySelect.addEventListener('change', (e) => {
@@ -510,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('⚠️  Variety select not found');
     }
-
+ 
     const seedDateInput = document.querySelector('input[name="seed_start_date"]');
     if (seedDateInput) {
         seedDateInput.addEventListener('change', (e) => {
@@ -524,28 +564,28 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.warn('⚠️  Seed date input not found');
     }
-
+ 
     const planForm = document.querySelector('form[data-form="plan-crop"]');
     if (planForm) {
         planForm.addEventListener('submit', (e) => calendar.handlePlanSubmit(e));
     } else {
         console.warn('⚠️  Plan form not found');
     }
-
+ 
     const prevBtn = document.querySelector('button[data-action="prev-month"]');
     if (prevBtn) {
         prevBtn.addEventListener('click', () => calendar.previousMonth());
     } else {
         console.warn('⚠️  Previous month button not found');
     }
-
+ 
     const nextBtn = document.querySelector('button[data-action="next-month"]');
     if (nextBtn) {
         nextBtn.addEventListener('click', () => calendar.nextMonth());
     } else {
         console.warn('⚠️  Next month button not found');
     }
-
+ 
     // Store calendar instance globally for debugging
     window.gardenCalendar = calendar;
     console.log('✅ Garden Calendar ready! (window.gardenCalendar available)');

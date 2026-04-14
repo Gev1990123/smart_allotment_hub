@@ -2406,6 +2406,32 @@ button:disabled {
     color: #333;
 }
 
+.crop-detail-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.crop-detail-delete {
+    flex: 1;
+    padding: 10px 16px;
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ef5350;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.crop-detail-delete:hover {
+    background: #ffcdd2;
+    border-color: #c62828;
+}
+
 .error {
     padding: 12px;
     background: #ffebee;
